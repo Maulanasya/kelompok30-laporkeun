@@ -1,16 +1,54 @@
-# React + Vite
+# LaporKeun!
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Platform pelaporan perundungan dan pendampingan siswa. Siswa dapat melapor
+(dengan nama atau anonim), memantau status laporan, dan berkonsultasi dengan
+guru BK. Guru BK dapat mengalihkan siswa ke psikolog untuk pendampingan lanjutan.
 
-Currently, two official plugins are available:
+Proyek Kelompok 30.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Peran Pengguna
 
-## React Compiler
+- Korban/Siswa Pelapor
+- Guru BK
+- Psikolog
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Tech Stack
 
-## Expanding the ESLint configuration
+- Frontend: React, Vite, Tailwind CSS v4
+- Font: Poppins
+- Backend: _belum ditentukan_
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Struktur Repo
+
+```
+laporkeunkel30/
+├── frontend/   # aplikasi React + Vite
+├── backend/    # server/API (belum dibuat)
+└── README.md
+```
+
+## Menjalankan Frontend
+
+```bash
+git clone https://github.com/USERNAME/kelompok30-laporkeun.git
+cd kelompok30-laporkeun/frontend
+copy .env.example .env
+npm install
+npm run dev
+```
+
+Buka `http://localhost:5173`. Isi nilai variabel di `.env` sesuai kebutuhan.
+
+## Alur Kerja Git
+
+- `main`: kode stabil, tidak boleh di-push langsung.
+- `dev`: tempat semua fitur digabung dan diuji.
+- Branch fitur dibuat dari `dev`, dengan format `feat/nama-fitur`
+  atau `fix/nama-perbaikan`, lalu digabung lewat Pull Request.
+
+## Tim
+
+- Maulana Yusuf Syawaludin
+- Muhammad Ihsanuddin
+- Raka Zaki Ramadhan
+- Nailah Mujadiah
