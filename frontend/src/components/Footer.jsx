@@ -73,7 +73,7 @@ export default function Footer() {
           <div className="space-y-5">
             <Link to="/" className="inline-flex items-center gap-3" aria-label="LaporKeun! kembali ke beranda">
               <img
-                src='/assets/images/logo.svg'
+                src='/assets/images/logo.png'
                 alt=""
                 className="h-12 w-12 object-contain"
                 style={{

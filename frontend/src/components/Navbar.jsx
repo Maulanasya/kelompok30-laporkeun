@@ -220,7 +220,7 @@ export default function Navbar() {
               aria-label="LaporKeun! kembali ke beranda"
             >
               <img
-                src="/assets/images/logo.svg"
+                src="/assets/images/logo.png"
                 alt=""
                 className="h-10 w-10 object-contain transition-transform duration-300 group-hover:-rotate-3"
               />
