@@ -17,15 +17,15 @@ import {
 } from "lucide-react";
 
 // Components
-import Navbar from "./components/layout/Navbar";
-import Footer from "./components/layout/Footer";
-import BlurText from "./components/reactbits/BlurText";
-import CountUp from "./components/reactbits/CountUp";
-import SpotlightCard from "./components/reactbits/SpotlightCard";
-import ShinyText from "./components/reactbits/ShinyText";
+import Navbar from "../components/layout/Navbar";
+import Footer from "../components/layout/Footer";
+import BlurText from "../components/reactbits/BlurText";
+import CountUp from "../components/reactbits/CountUp";
+import SpotlightCard from "../components/reactbits/SpotlightCard";
+import ShinyText from "../components/reactbits/ShinyText";
 
 // Assets
-import { images } from "./assets";
+import { images } from "../assets";
 
 // --- Design Tokens ---
 const COLOR_PRIMARY = "#0F4C5C";

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { AnimatePresence, MotionConfig, motion, useScroll, useSpring } from "framer-motion";
 import { ArrowRight, Menu, X, User, LogOut } from "lucide-react";
+import { Link } from "react-router-dom";
 
 // Assets & UI Components
 import logoImage from "../../assets/logo.png";
