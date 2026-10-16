@@ -4,6 +4,9 @@ import { Routes, Route, Link } from "react-router-dom";
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import VerifyCodePage from "./pages/VerifyCodePage";
+import NewPasswordPage from "./pages/NewPasswordPage";
 
 const ComingSoon = ({ name }) => (
   <div className="min-h-screen grid place-items-center text-slate-600 text-center px-6">
@@ -23,9 +26,9 @@ export default function App() {
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<ComingSoon name="Register" />} />
-      <Route path="/lupa-password" element={<ComingSoon name="Lupa Password" />} />
-      <Route path="/verifikasi-kode" element={<ComingSoon name="Verifikasi Kode" />} />
-      <Route path="/buat-sandi-baru" element={<ComingSoon name="Buat Sandi Baru" />} />
+      <Route path="/lupa-password" element={<ForgotPasswordPage />} />
+      <Route path="/verifikasi-kode" element={<VerifyCodePage />} />
+      <Route path="/buat-sandi-baru" element={<NewPasswordPage />} />
       <Route path="/form-laporan" element={<ComingSoon name="Form Laporan" />} />
       <Route path="*" element={<ComingSoon name="yang kamu cari" />} />
     </Routes>

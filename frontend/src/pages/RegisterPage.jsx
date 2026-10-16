@@ -45,6 +45,31 @@ const INITIAL_FORM = {
   password: "",
 };
 
+// Helper Reusable Field Wrapper
+const Field = ({ id, label, icon: Icon, error, children }) => (
+  <div className="space-y-2">
+    <label
+      htmlFor={id}
+      className="block text-sm font-semibold"
+      style={{ color: COLOR_PRIMARY }}
+    >
+      {label}
+    </label>
+    <div className="relative">
+      <Icon
+        size={18}
+        className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+      />
+      {children}
+    </div>
+    {error && (
+      <p id={`${id}-error`} className="text-xs text-red-600 pl-4">
+        {error}
+      </p>
+    )}
+  </div>
+);
+
 export default function RegisterPage() {
   const [form, setForm] = useState(INITIAL_FORM);
   const [showPassword, setShowPassword] = useState(false);
