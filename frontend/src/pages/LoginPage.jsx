@@ -1,22 +1,29 @@
 import React, { useState } from "react";
-import { motion } from "motion/react";
-import { Eye, EyeOff, IdCard, Lock, LogIn, AlertCircle, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
-import logo from "../assets/logo.png";
+import { motion } from "motion/react";
+import {
+  Eye,
+  EyeOff,
+  IdCard,
+  Lock,
+  LogIn,
+  AlertCircle,
+  Loader2,
+} from "lucide-react";
 
 // Components
-import Navbar from "../components/layout/Navbar";
+import AuthHeader from "../components/layout/AuthHeader";
 import BlurText from "../components/reactbits/BlurText";
 
 // Assets
 import { images } from "../assets";
 
-// --- Design Tokens (sama dengan LandingPage) ---
+// --- Design Tokens ---
 const COLOR_PRIMARY = "#0F4C5C";
 const COLOR_TERTIARY = "#1597A8";
 const ANIMATION_EASE = [0.22, 1, 0.36, 1];
 
+// --- Form Constants ---
 const NISN_LENGTH = 10;
 
 export default function LoginPage() {
@@ -26,35 +33,53 @@ export default function LoginPage() {
   const [serverError, setServerError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Sanitasi input NISN (hanya angka) & penanganan checkbox
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    // NISN hanya boleh angka
-    const next = name === "nisn" ? value.replace(/\D/g, "").slice(0, NISN_LENGTH) : value;
-    setForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : next }));
+    const next =
+      name === "nisn" ? value.replace(/\D/g, "").slice(0, NISN_LENGTH) : value;
+
+    setForm((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : next,
+    }));
     setErrors((prev) => ({ ...prev, [name]: "" }));
     setServerError("");
   };
 
+  // Validasi form lokal
   const validate = () => {
     const nextErrors = {};
-    if (!form.nisn) nextErrors.nisn = "NISN wajib diisi.";
-    else if (form.nisn.length !== NISN_LENGTH)
+
+    if (!form.nisn) {
+      nextErrors.nisn = "NISN wajib diisi.";
+    } else if (form.nisn.length !== NISN_LENGTH) {
       nextErrors.nisn = `NISN terdiri dari ${NISN_LENGTH} angka.`;
-    if (!form.password) nextErrors.password = "Password wajib diisi.";
+    }
+
+    if (!form.password) {
+      nextErrors.password = "Password wajib diisi.";
+    }
+
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
 
+  // Submit Handler
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) return;
 
     setLoading(true);
     setServerError("");
+
     try {
+      // TODO: Hubungkan ke endpoint API autentikasi / login
       await new Promise((r) => setTimeout(r, 800));
     } catch (err) {
-      setServerError(err.message || "Gagal masuk. Coba lagi sebentar lagi.");
+      setServerError(
+        err.message || "Gagal masuk. Coba lagi sebentar lagi."
+      );
     } finally {
       setLoading(false);
     }
@@ -74,49 +99,36 @@ export default function LoginPage() {
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
       `}</style>
 
-      {/* Header minimal */}
-<header className="absolute top-0 inset-x-0 z-10">
-  <div className="max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
-    <Link to="/" className="flex items-center gap-2">
-      <img src={logo} alt="LaporKeun!" className="h-9 w-auto" />
-      <span className="font-bold text-lg" style={{ color: COLOR_PRIMARY }}>
-        LaporKeun<span style={{ color: COLOR_TERTIARY }}>!</span>
-      </span>
-    </Link>
-    <Link
-      to="/"
-      className="inline-flex items-center gap-2 text-sm font-semibold transition hover:underline"
-      style={{ color: COLOR_PRIMARY }}
-    >
-      <ArrowLeft size={16} /> Kembali ke beranda
-    </Link>
-  </div>
-</header>
+      <AuthHeader />
 
       <main className="relative flex-1 flex items-center pt-28 pb-16 md:pt-32 md:pb-20 overflow-hidden">
-        {/* Background Decorative Blurs */}
+        {/* Decorative Background Elements */}
         <div
           aria-hidden="true"
           className="absolute -top-40 -left-32 w-130 h-130 rounded-full bg-[#1597A8]/15 blur-3xl pointer-events-none"
         />
         <div
           aria-hidden="true"
-          className="absolute -bottom-40 right-0 w-115 h-115 rounded-full bg-[#E9C46A]/20 blur-3xl pointer-events-none"
+          className="absolute -bottom-40 right-0 w-115 h-115 rounded-full bg-accent/20 blur-3xl pointer-events-none"
         />
 
         <div className="relative w-full max-w-7xl mx-auto px-6 grid lg:grid-cols-[1.1fr_0.9fr] gap-14 items-center">
-          {/* Ilustrasi (disembunyikan di mobile agar form langsung terlihat) */}
+          {/* Hero Illustration */}
           <div className="hidden lg:block">
             <motion.img
               src={images?.login}
               alt="Ilustrasi masuk ke akun LaporKeun!"
               className="w-full max-w-xl mx-auto object-contain"
               animate={{ y: [0, -10, 0] }}
-              transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+              transition={{
+                duration: 5,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
             />
           </div>
 
-          {/* Kartu Form */}
+          {/* Form Card */}
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
@@ -145,13 +157,20 @@ export default function LoginPage() {
                 </div>
               )}
 
-              {/* NISN */}
+              {/* NISN Field */}
               <div className="space-y-2">
-                <label htmlFor="nisn" className="block text-sm font-semibold" style={{ color: COLOR_PRIMARY }}>
+                <label
+                  htmlFor="nisn"
+                  className="block text-sm font-semibold"
+                  style={{ color: COLOR_PRIMARY }}
+                >
                   NISN
                 </label>
                 <div className="relative">
-                  <IdCard size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <IdCard
+                    size={18}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                  />
                   <input
                     id="nisn"
                     name="nisn"
@@ -173,13 +192,20 @@ export default function LoginPage() {
                 )}
               </div>
 
-              {/* Password */}
+              {/* Password Field */}
               <div className="space-y-2">
-                <label htmlFor="password" className="block text-sm font-semibold" style={{ color: COLOR_PRIMARY }}>
+                <label
+                  htmlFor="password"
+                  className="block text-sm font-semibold"
+                  style={{ color: COLOR_PRIMARY }}
+                >
                   Password
                 </label>
                 <div className="relative">
-                  <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Lock
+                    size={18}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                  />
                   <input
                     id="password"
                     name="password"
@@ -189,13 +215,19 @@ export default function LoginPage() {
                     onChange={handleChange}
                     placeholder="Masukkan password"
                     aria-invalid={!!errors.password}
-                    aria-describedby={errors.password ? "password-error" : undefined}
+                    aria-describedby={
+                      errors.password ? "password-error" : undefined
+                    }
                     className={`${inputClass(errors.password)} pr-12`}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword((v) => !v)}
-                    aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
+                    aria-label={
+                      showPassword
+                        ? "Sembunyikan password"
+                        : "Tampilkan password"
+                    }
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#1597A8] transition cursor-pointer"
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -208,7 +240,7 @@ export default function LoginPage() {
                 )}
               </div>
 
-              {/* Ingat saya & Lupa password */}
+              {/* Remember Me & Forgot Password */}
               <div className="flex items-center justify-between gap-4 text-sm">
                 <label className="inline-flex items-center gap-2 cursor-pointer select-none text-slate-600">
                   <input
@@ -220,16 +252,16 @@ export default function LoginPage() {
                   />
                   Ingat saya
                 </label>
-                <a
-                  href="/lupa-password"
+                <Link
+                  to="/lupa-password"
                   className="font-semibold transition hover:underline"
                   style={{ color: COLOR_TERTIARY }}
                 >
                   Lupa password?
-                </a>
+                </Link>
               </div>
 
-              {/* Tombol Masuk */}
+              {/* Submit Button */}
               <button
                 type="submit"
                 disabled={loading}
@@ -250,15 +282,14 @@ export default function LoginPage() {
 
             <p className="mt-6 text-center text-sm text-slate-600">
               Belum punya akun?{" "}
-              <a
-                href="/register"
+              <Link
+                to="/register"
                 className="font-semibold transition hover:underline"
                 style={{ color: COLOR_PRIMARY }}
               >
                 Daftar di sini
-              </a>
+              </Link>
             </p>
-
           </motion.div>
         </div>
       </main>

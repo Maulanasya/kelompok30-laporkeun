@@ -19,17 +19,17 @@ import {
 // Components
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
+import ShinyText from "../components/reactbits/ShinyText";
 import BlurText from "../components/reactbits/BlurText";
 import CountUp from "../components/reactbits/CountUp";
 import SpotlightCard from "../components/reactbits/SpotlightCard";
-import ShinyText from "../components/reactbits/ShinyText";
 
 // Assets
 import { images } from "../assets";
 
 // --- Design Tokens ---
-const COLOR_PRIMARY = "#0F4C5C";
-const COLOR_TERTIARY = "#1597A8";
+const COLOR_PRIMARY = "#023346";
+const COLOR_TERTIARY = "#3191A0";
 const ANIMATION_EASE = [0.22, 1, 0.36, 1];
 
 // --- Static Data ---
@@ -180,7 +180,10 @@ export default function LandingPage() {
       <Navbar />
 
       {/* ================= HERO SECTION ================= */}
-      <section id="beranda" className="relative pt-32 pb-20 md:pt-40 md:pb-28 overflow-hidden">
+      <section
+        id="beranda"
+        className="relative pt-32 pb-20 md:pt-40 md:pb-28 overflow-hidden"
+      >
         {/* Background Decorative Blurs */}
         <div
           aria-hidden="true"
@@ -188,7 +191,7 @@ export default function LandingPage() {
         />
         <div
           aria-hidden="true"
-          className="absolute -bottom-40 right-0 w-115 h-115 rounded-full bg-[#E9C46A]/20 blur-3xl pointer-events-none"
+          className="absolute -bottom-40 right-0 w-115 h-115 rounded-full bg-accent/20 blur-3xl pointer-events-none"
         />
 
         <div className="relative max-w-7xl mx-auto px-6 grid lg:grid-cols-[1.1fr_0.9fr] gap-14 items-center">
@@ -205,8 +208,9 @@ export default function LandingPage() {
             />
 
             <p className="text-slate-600 leading-relaxed max-w-xl">
-              LaporKeun! adalah tempat aman untuk melaporkan perundungan di sekolah. Ceritamu
-              dienkripsi, identitasmu terlindungi, dan konselor profesional siap mendampingi.
+              LaporKeun! adalah tempat aman untuk melaporkan perundungan di
+              sekolah. Ceritamu dienkripsi, identitasmu terlindungi, dan
+              konselor profesional siap mendampingi.
             </p>
 
             {/* Form Pelacakan Tiket */}
@@ -238,7 +242,8 @@ export default function LandingPage() {
 
             <p className="flex items-center gap-2 text-xs font-medium text-slate-500">
               <Lock size={14} color={COLOR_TERTIARY} className="shrink-0" />
-              Identitas dan datamu dijaga kerahasiaannya. Kamu bisa melapor tanpa nama.
+              Identitas dan datamu dijaga kerahasiaannya. Kamu bisa melapor
+              tanpa nama.
             </p>
 
             <div className="flex flex-wrap gap-3 pt-1">
@@ -266,7 +271,11 @@ export default function LandingPage() {
               alt="Tiga siswa saling mendukung"
               className="w-full max-w-lg mx-auto object-contain"
               animate={{ y: [0, -10, 0] }}
-              transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+              transition={{
+                duration: 5,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
             />
           </div>
         </div>
@@ -275,7 +284,10 @@ export default function LandingPage() {
         <div className="relative max-w-4xl mx-auto px-6 mt-16 grid grid-cols-3 gap-4 text-center">
           {STATS.map((stat) => (
             <div key={stat.label}>
-              <div className="text-3xl md:text-4xl font-bold" style={{ color: COLOR_PRIMARY }}>
+              <div
+                className="text-3xl md:text-4xl font-bold"
+                style={{ color: COLOR_PRIMARY }}
+              >
                 <CountUp to={stat.to} separator={stat.sep} duration={2} />
                 {stat.suffix}
               </div>
@@ -289,11 +301,15 @@ export default function LandingPage() {
       <section id="fitur" className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-6">
           <div className="max-w-2xl mb-14 space-y-3">
-            <h2 className="text-3xl md:text-4xl font-bold" style={{ color: COLOR_PRIMARY }}>
+            <h2
+              className="text-3xl md:text-4xl font-bold"
+              style={{ color: COLOR_PRIMARY }}
+            >
               Semua yang kamu butuhkan, di satu tempat
             </h2>
             <p className="text-slate-600">
-              Dari melapor sampai pulih, setiap langkah dirancang agar kamu merasa aman dan didengar.
+              Dari melapor sampai pulih, setiap langkah dirancang agar kamu
+              merasa aman dan didengar.
             </p>
           </div>
 
@@ -310,7 +326,10 @@ export default function LandingPage() {
                 >
                   <Icon size={22} />
                 </div>
-                <h3 className="font-semibold mb-2" style={{ color: COLOR_PRIMARY }}>
+                <h3
+                  className="font-semibold mb-2"
+                  style={{ color: COLOR_PRIMARY }}
+                >
                   {title}
                 </h3>
                 <p className="text-sm text-slate-600 leading-relaxed">{desc}</p>
@@ -337,8 +356,8 @@ export default function LandingPage() {
               Privasimu adalah yang pertama kami jaga
             </h2>
             <p className="text-slate-300 leading-relaxed">
-              Kami tahu melapor itu tidak mudah. Karena itu, sistem ini dibuat agar hanya kamu yang
-              menentukan siapa yang tahu.
+              Kami tahu melapor itu tidak mudah. Karena itu, sistem ini dibuat
+              agar hanya kamu yang menentukan siapa yang tahu.
             </p>
           </div>
 
@@ -349,7 +368,7 @@ export default function LandingPage() {
                 spotlightColor="rgba(233,196,106,0.2)"
                 className="bg-white/5 border-white/10"
               >
-                <Icon size={22} className="text-[#E9C46A] mb-3" />
+                <Icon size={22} className="text-accent mb-3" />
                 <h3 className="font-semibold mb-1">{title}</h3>
                 <p className="text-sm text-slate-300 leading-relaxed">{desc}</p>
               </SpotlightCard>
@@ -368,7 +387,10 @@ export default function LandingPage() {
           />
 
           <div>
-            <h2 className="text-3xl md:text-4xl font-bold mb-10" style={{ color: COLOR_PRIMARY }}>
+            <h2
+              className="text-3xl md:text-4xl font-bold mb-10"
+              style={{ color: COLOR_PRIMARY }}
+            >
               Empat langkah, tanpa ribet
             </h2>
             <ol className="relative space-y-8 border-l-2 border-cyan-100 ml-4">
@@ -380,7 +402,10 @@ export default function LandingPage() {
                   >
                     {index + 1}
                   </span>
-                  <h3 className="font-semibold" style={{ color: COLOR_PRIMARY }}>
+                  <h3
+                    className="font-semibold"
+                    style={{ color: COLOR_PRIMARY }}
+                  >
                     {step.t}
                   </h3>
                   <p className="text-sm text-slate-600 leading-relaxed mt-1 max-w-md">
@@ -397,7 +422,10 @@ export default function LandingPage() {
       <section id="artikel" className="py-24 bg-[#F4F9F9]">
         <div className="max-w-7xl mx-auto px-6">
           <div className="max-w-2xl mb-12 space-y-3">
-            <h2 className="text-3xl md:text-4xl font-bold" style={{ color: COLOR_PRIMARY }}>
+            <h2
+              className="text-3xl md:text-4xl font-bold"
+              style={{ color: COLOR_PRIMARY }}
+            >
               Bacaan yang membantumu tenang
             </h2>
             <p className="text-slate-600">
@@ -415,10 +443,15 @@ export default function LandingPage() {
                 <span className="self-start rounded-full bg-amber-50 text-amber-700 text-xs font-semibold px-3 py-1">
                   {article.cat}
                 </span>
-                <h3 className="font-bold leading-snug" style={{ color: COLOR_PRIMARY }}>
+                <h3
+                  className="font-bold leading-snug"
+                  style={{ color: COLOR_PRIMARY }}
+                >
                   {article.title}
                 </h3>
-                <p className="text-sm text-slate-600 leading-relaxed flex-1">{article.desc}</p>
+                <p className="text-sm text-slate-600 leading-relaxed flex-1">
+                  {article.desc}
+                </p>
                 <div className="flex items-center justify-between text-xs text-slate-500 pt-2">
                   {article.date}
                   <ArrowRight
@@ -441,7 +474,8 @@ export default function LandingPage() {
               Butuh bantuan sekarang?
             </h3>
             <p className="text-sm text-slate-700 mt-1 max-w-xl">
-              Kalau kamu atau temanmu dalam situasi berbahaya, hubungi tim siaga darurat kami. mereka siap membantu setiap saat.
+              Kalau kamu atau temanmu dalam situasi berbahaya, hubungi tim
+              siaga darurat kami. mereka siap membantu setiap saat.
             </p>
           </div>
           <a

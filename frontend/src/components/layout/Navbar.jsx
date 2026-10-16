@@ -1,7 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
-import { AnimatePresence, MotionConfig, motion, useScroll, useSpring } from "framer-motion";
+import {
+  AnimatePresence,
+  MotionConfig,
+  motion,
+  useScroll,
+  useSpring,
+} from "framer-motion";
 import { ArrowRight, Menu, X, User, LogOut } from "lucide-react";
-import { Link } from "react-router-dom";
 
 // Assets & UI Components
 import logoImage from "../../assets/logo.png";
@@ -27,7 +32,7 @@ const LOGGED_IN_LINKS = [
 
 const SECTION_IDS = ["fitur", "keamanan", "cara-kerja", "artikel", "faq"];
 
-// Tinggi navbar fixed, dipakai sebagai offset saat scroll ke section
+// Tinggi navbar fixed untuk offset scroll ke section
 const HEADER_OFFSET = 90;
 
 // Motion Physics Constants
@@ -36,8 +41,16 @@ const EASE_OUT_TRANSITION = [0.16, 1, 0.3, 1];
 
 // --- Sub-Components ---
 
-/** Item link navigasi untuk tampilan desktop dengan indikator animasi hover & aktif */
-function DesktopNavLink({ label, href, isActive, isHovered, onClick, onHover, onLeave }) {
+/** Item link navigasi desktop */
+function DesktopNavLink({
+  label,
+  href,
+  isActive,
+  isHovered,
+  onClick,
+  onHover,
+  onLeave,
+}) {
   const Tag = href ? "a" : "button";
   const tagProps = href ? { href } : { type: "button" };
 
@@ -76,7 +89,7 @@ function DesktopNavLink({ label, href, isActive, isHovered, onClick, onHover, on
   );
 }
 
-/** Item link navigasi untuk tampilan menu mobile */
+/** Item link navigasi mobile */
 function MobileNavLink({ label, isActive, index, onClick }) {
   return (
     <motion.button
@@ -86,12 +99,18 @@ function MobileNavLink({ label, isActive, index, onClick }) {
       animate={{
         opacity: 1,
         x: 0,
-        transition: { duration: 0.35, delay: index * 0.04, ease: EASE_OUT_TRANSITION },
+        transition: {
+          duration: 0.35,
+          delay: index * 0.04,
+          ease: EASE_OUT_TRANSITION,
+        },
       }}
       whileTap={{ scale: 0.98 }}
       aria-current={isActive ? "page" : undefined}
       className={`relative block w-full text-left px-4 py-3 rounded-xl text-sm font-semibold cursor-pointer transition-colors duration-300 ${
-        isActive ? "bg-primary text-white" : "text-primary/80 hover:bg-primary-light/50"
+        isActive
+          ? "bg-primary text-white"
+          : "text-primary/80 hover:bg-primary-light/50"
       }`}
     >
       {label}
@@ -99,7 +118,7 @@ function MobileNavLink({ label, isActive, index, onClick }) {
   );
 }
 
-/** Tombol standar bergaris luar (Sekunder) */
+/** Tombol Sekunder Outline */
 function OutlineButton({ label, onClick, mobile = false }) {
   return (
     <motion.button
@@ -116,7 +135,7 @@ function OutlineButton({ label, onClick, mobile = false }) {
   );
 }
 
-/** Tombol aksi utama (CTA) dengan efek StarBorder */
+/** Tombol Utama (CTA) StarBorder */
 function CtaButton({ label, onClick, mobile = false }) {
   return (
     <StarBorder
@@ -137,7 +156,7 @@ function CtaButton({ label, onClick, mobile = false }) {
   );
 }
 
-// --- Helper: Smooth Scroll ke Section (scrollTo + offset, lebih andal di mobile) ---
+// Helper: Smooth Scroll ke Section
 function scrollToSection(id) {
   if (id === "beranda") {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -159,17 +178,17 @@ export default function Navbar() {
 
   const closeBtnRef = useRef(null);
 
-  // Smooth Progress Bar untuk penanda Scroll Halaman
+  // Scroll Progress Bar
   const { scrollYProgress } = useScroll();
   const progress = useSpring(scrollYProgress, { stiffness: 120, damping: 30 });
 
-  // Pengecekan Status Sesi User & Halaman Saat Ini
+  // Pengecekan Sesi & Halaman
   const pathname = window.location.pathname;
   const isLoggedIn = Boolean(localStorage.getItem("user"));
   const isHomePage = pathname === "/";
   const links = isLoggedIn ? LOGGED_IN_LINKS : NAV_LINKS;
 
-  // Menangani Efek Scroll: Perubahan Tampilan Glassmorphism & Active Section Detection
+  // Handle Scroll: Transisi Glassmorphism & Active Section Detection
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 25);
@@ -191,7 +210,7 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, [isHomePage]);
 
-  // Scroll otomatis jika halaman dibuka dengan hash (mis. /#fitur dari halaman lain)
+  // Handle Auto Scroll via URL Hash
   useEffect(() => {
     if (!isHomePage || !window.location.hash) return;
     const id = window.location.hash.slice(1);
@@ -199,7 +218,7 @@ export default function Navbar() {
     return () => clearTimeout(t);
   }, [isHomePage]);
 
-  // Accessibility: Menutup Modal Logout saat menekan tombol ESC
+  // Handle Keydown ESC pada Modal Logout
   useEffect(() => {
     if (!showLogoutConfirm) return;
 
@@ -211,28 +230,27 @@ export default function Navbar() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [showLogoutConfirm]);
 
-  // Handler Navigasi Link (Bisa dipakai Desktop & Mobile)
+  // Handler Klik Navigasi
   const handleNavClick = (link) => {
-    setIsMobileOpen(false); // Selalu tutup menu mobile setelah item diklik
+    setIsMobileOpen(false);
 
     if (isLoggedIn) {
       window.location.href = link.path;
       return;
     }
 
-    // Bukan di halaman utama -> pindah dulu ke beranda dengan hash
     if (!isHomePage) {
       window.location.href = link.id === "beranda" ? "/" : `/#${link.id}`;
       return;
     }
 
-    // Beri jeda supaya menu mobile selesai menutup sebelum scroll
     setTimeout(() => scrollToSection(link.id), 150);
   };
 
-  // Helper Pengecekan Status Aktif Link
-  const isPathActive = (path) => (path === "/" ? pathname === "/" : pathname.startsWith(path));
-  const checkIsActive = (link) => (isLoggedIn ? isPathActive(link.path) : activeId === link.id);
+  const isPathActive = (path) =>
+    path === "/" ? pathname === "/" : pathname.startsWith(path);
+  const checkIsActive = (link) =>
+    isLoggedIn ? isPathActive(link.path) : activeId === link.id;
 
   const handleLogout = () => {
     localStorage.removeItem("user");
@@ -258,7 +276,7 @@ export default function Navbar() {
           {/* Accent Line Border */}
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute inset-x-10 top-0 h-px bg-linear-to-r from-transparent via-[#E9C46A]/80 to-transparent"
+            className="pointer-events-none absolute inset-x-10 top-0 h-px bg-linear-to-r from-transparent via-accent/80 to-transparent"
           />
 
           <div className="flex items-center justify-between gap-4">
@@ -286,7 +304,11 @@ export default function Navbar() {
                 <div className="text-base font-extrabold tracking-tight text-primary">
                   LaporKeun<span className="text-tertiary">!</span>
                 </div>
-                <ShinyText text="Ruang aman untuk bersuara" speed={5} className="text-[10px] font-medium" />
+                <ShinyText
+                  text="Ruang aman untuk bersuara"
+                  speed={5}
+                  className="text-[10px] font-medium"
+                />
               </div>
             </motion.button>
 
@@ -338,8 +360,14 @@ export default function Navbar() {
                 </>
               ) : (
                 <>
-                  <OutlineButton label="Masuk" onClick={() => (window.location.href = "/login")} />
-                  <CtaButton label="Daftar" onClick={() => (window.location.href = "/register")} />
+                  <OutlineButton
+                    label="Masuk"
+                    onClick={() => (window.location.href = "/login")}
+                  />
+                  <CtaButton
+                    label="Daftar"
+                    onClick={() => (window.location.href = "/register")}
+                  />
                 </>
               )}
             </div>
@@ -371,7 +399,7 @@ export default function Navbar() {
           <motion.span
             aria-hidden="true"
             style={{ scaleX: progress, originX: 0 }}
-            className="pointer-events-none absolute left-8 right-8 bottom-0 h-0.5 rounded-full bg-linear-to-r from-tertiary to-[#E9C46A]"
+            className="pointer-events-none absolute left-8 right-8 bottom-0 h-0.5 rounded-full bg-linear-to-r from-tertiary to-accent"
           />
         </div>
 
@@ -459,11 +487,15 @@ export default function Navbar() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <h3 id="logout-title" className="text-base font-extrabold text-primary">
+                  <h3
+                    id="logout-title"
+                    className="text-base font-extrabold text-primary"
+                  >
                     Keluar dari akun?
                   </h3>
                   <p className="text-xs text-slate-500 leading-relaxed">
-                    Kamu perlu masuk lagi untuk mengakses laporan dan riwayat konselingmu.
+                    Kamu perlu masuk lagi untuk mengakses laporan dan riwayat
+                    konselingmu.
                   </p>
                 </div>
 
