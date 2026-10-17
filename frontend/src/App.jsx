@@ -7,6 +7,8 @@ import RegisterPage from "./pages/RegisterPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import VerifyCodePage from "./pages/VerifyCodePage";
 import NewPasswordPage from "./pages/NewPasswordPage";
+import SuccessPage from "./pages/SuccessPage";
+import FailedPage from "./pages/FailedPage";
 
 const ComingSoon = ({ name }) => (
   <div className="min-h-screen grid place-items-center text-slate-600 text-center px-6">
@@ -25,7 +27,8 @@ export default function App() {
       <Route path="/" element={<LandingPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<ComingSoon name="Register" />} />
+      <Route path="/success" element={<SuccessPage />} />
+      <Route path="/failed" element={<FailedPage />} />
       <Route path="/lupa-password" element={<ForgotPasswordPage />} />
       <Route path="/verifikasi-kode" element={<VerifyCodePage />} />
       <Route path="/buat-sandi-baru" element={<NewPasswordPage />} />
