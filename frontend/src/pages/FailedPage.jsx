@@ -47,7 +47,7 @@ export default function FailedPage() {
         {/* Background Decorative Blurs */}
         <div
           aria-hidden="true"
-          className="absolute -top-40 -left-32 w-130 h-130 rounded-full bg-[#1597A8]/15 blur-3xl pointer-events-none"
+          className="absolute -top-40 -left-32 w-130 h-130 rounded-full bg-tertiary/15 blur-3xl pointer-events-none"
         />
         <div
           aria-hidden="true"
@@ -77,7 +77,7 @@ export default function FailedPage() {
               <BlurText
                 text="Laporan gagal dikirim"
                 delay={90}
-                className="text-3xl md:text-4xl font-bold leading-[1.15] flex-wrap text-[#0F4C5C]"
+                className="text-3xl md:text-4xl font-bold leading-[1.15] flex-wrap text-primary"
               />
               <p className="text-sm text-slate-600 leading-relaxed">
                 Laporanmu belum berhasil dikirim. Jangan khawatir, data yang kamu isi belum
@@ -114,7 +114,7 @@ export default function FailedPage() {
             <div className="mt-8 pt-6 border-t border-slate-200 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
               <Link
                 to="/"
-                className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-300 bg-white px-6 py-3 text-sm font-semibold transition hover:border-[#1597A8]"
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-300 bg-white px-6 py-3 text-sm font-semibold transition hover:border-tertiary"
                 style={{ color: COLOR_PRIMARY }}
               >
                 <Home size={16} /> Kembali ke beranda

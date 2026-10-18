@@ -64,7 +64,7 @@ export default function SuccessPage() {
         {/* Background Decorative Blurs */}
         <div
           aria-hidden="true"
-          className="absolute -top-40 -left-32 w-130 h-130 rounded-full bg-[#1597A8]/15 blur-3xl pointer-events-none"
+          className="absolute -top-40 -left-32 w-130 h-130 rounded-full bg-tertiary/15 blur-3xl pointer-events-none"
         />
         <div
           aria-hidden="true"
@@ -95,7 +95,7 @@ export default function SuccessPage() {
               <BlurText
                 text="Laporan berhasil dikirim"
                 delay={90}
-                className="text-3xl md:text-4xl font-bold leading-[1.15] flex-wrap text-[#0F4C5C]"
+                className="text-3xl md:text-4xl font-bold leading-[1.15] flex-wrap text-primary"
               />
               <p className="text-sm text-slate-600 leading-relaxed">
                 Laporanmu sudah kami terima. Simpan kode tiket berikut untuk memantau
@@ -119,7 +119,7 @@ export default function SuccessPage() {
                   readOnly
                   value={`#${ticket}`}
                   onFocus={(e) => e.target.select()}
-                  className="min-w-0 flex-1 rounded-full bg-[#F4F9F9] border border-slate-200 px-5 py-3.5 text-sm font-semibold tracking-wide outline-none transition focus:border-[#1597A8] focus:ring-4 focus:ring-cyan-100"
+                  className="min-w-0 flex-1 rounded-full bg-[#F4F9F9] border border-slate-200 px-5 py-3.5 text-sm font-semibold tracking-wide outline-none transition focus:border-tertiary focus:ring-4 focus:ring-cyan-100"
                   style={{ color: COLOR_PRIMARY }}
                 />
                 <button
@@ -168,7 +168,7 @@ export default function SuccessPage() {
                       {!isLast && (
                         <span
                           aria-hidden="true"
-                          className="absolute left-2.5 top-6 -bottom-0 w-0.5 -translate-x-1/2"
+                          className="absolute left-2.5 top-6 bottom-0 w-0.5 -translate-x-1/2"
                           style={{ background: isDone ? COLOR_TERTIARY : "#E2E8F0" }}
                         />
                       )}
@@ -224,14 +224,14 @@ export default function SuccessPage() {
             <div className="mt-8 pt-6 border-t border-slate-200 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
               <Link
                 to="/"
-                className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-300 bg-white px-6 py-3 text-sm font-semibold transition hover:border-[#1597A8]"
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-300 bg-white px-6 py-3 text-sm font-semibold transition hover:border-tertiary"
                 style={{ color: COLOR_PRIMARY }}
               >
                 <Home size={16} /> Kembali ke beranda
               </Link>
               <button
                 type="button"
-                onClick={() => navigate(`/lacak?kode=${encodeURIComponent(ticket)}`)}
+                onClick={() => navigate("/riwayat-laporan", { state: { ticket } })}
                 className="inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-cyan-900/15 transition hover:-translate-y-0.5 hover:brightness-95 cursor-pointer"
                 style={{ background: COLOR_PRIMARY }}
               >
