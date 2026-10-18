@@ -34,6 +34,7 @@ git clone https://github.com/USERNAME/kelompok30-laporkeun.git
 cd kelompok30-laporkeun/frontend
 copy .env.example .env
 npm install
+npm install motion
 npm run dev
 ```
 
