@@ -1,48 +1,81 @@
-import Navbar from "../components/Navbar";
-import Footer from "../components/Footer";
-import Card from "../components/Card";
+import { motion } from "motion/react";
+import { Lock } from "lucide-react";
+
+import Navbar from "../components/layout/Navbar";
+import Footer from "../components/layout/Footer";
+import BlurText from "../components/reactbits/BlurText";
+import ShinyText from "../components/reactbits/ShinyText";
 import FormLaporan from "../components/form-laporan/FormLaporan";
 import InfoSidebar from "../components/form-laporan/InfoSidebar";
 
+// --- Design Tokens (sama dengan LandingPage) ---
+const COLOR_TERTIARY = "#3191A0";
+const ANIMATION_EASE = [0.22, 1, 0.36, 1];
+
 export default function FormLaporanPage() {
   return (
-    <div className="min-h-screen bg-neutral-light font-sans pt-20">
+    <div
+      className="min-h-screen flex flex-col bg-[#F4F9F9] text-slate-800 selection:bg-cyan-100 overflow-x-hidden"
+      style={{ fontFamily: "'Plus Jakarta Sans', 'Poppins', sans-serif" }}
+    >
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+      `}</style>
+
       <Navbar />
 
-      <main className="relative overflow-hidden">
-        {/* Dekorasi kiri */}
+      <main className="relative flex-1 overflow-hidden pt-28 pb-16 md:pt-32 md:pb-24">
+        {/* Background Decorative Blurs */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -top-40 -left-32 h-130 w-130 rounded-full bg-[#1597A8]/15 blur-3xl"
+          className="pointer-events-none absolute -top-40 -left-32 h-130 w-130 rounded-full bg-tertiary/15 blur-3xl"
         />
-        {/* Dekorasi kanan bawah */}
         <div
           aria-hidden="true"
           className="pointer-events-none absolute -bottom-40 right-0 h-115 w-115 rounded-full bg-[#E9C46A]/20 blur-3xl"
         />
 
-        <div className="relative z-10 mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
-          {/* Hero Title */}
-          <div className="mb-5 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
-            <h1 className="text-lg font-bold text-primary sm:text-xl">
-              Formulir Pengaduan & Pelaporan
-            </h1>
-            <p className="mt-1 text-[11px] text-slate-500">
+        <div className="relative mx-auto max-w-7xl px-6">
+          {/* Judul halaman */}
+          <div className="mb-10 max-w-2xl space-y-4">
+            <span className="inline-flex items-center gap-2 rounded-full border border-cyan-100 bg-white/80 px-4 py-1.5 text-xs font-medium">
+              <Lock size={13} color={COLOR_TERTIARY} />
+              <ShinyText text="Gratis, rahasia, dan bisa tanpa nama" speed={4} />
+            </span>
+
+            <BlurText
+              text="Formulir pengaduan dan pelaporan"
+              delay={90}
+              className="flex-wrap text-3xl font-bold leading-[1.15] text-primary md:text-4xl"
+            />
+
+            <p className="leading-relaxed text-slate-600">
               Sampaikan laporanmu dengan jujur. Identitas dan kerahasiaanmu
-              dijamin aman.
+              dijaga, dan konselor kami siap mendampingi.
             </p>
           </div>
 
           {/* Layout 2 kolom */}
-          <section className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <section className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
             {/* KIRI: Form */}
-            <Card className="p-5 sm:p-6">
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, ease: ANIMATION_EASE }}
+              className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-cyan-900/10 sm:p-8"
+            >
               <FormLaporan />
-            </Card>
+            </motion.div>
 
-            {/* KANAN: Sidebar Info */}
-            
-            <InfoSidebar />
+            {/* KANAN: Sidebar Info (ikut menempel saat scroll di layar besar) */}
+            <motion.aside
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.1, ease: ANIMATION_EASE }}
+              className="lg:sticky lg:top-28"
+            >
+              <InfoSidebar />
+            </motion.aside>
           </section>
         </div>
       </main>

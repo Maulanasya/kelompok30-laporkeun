@@ -1,37 +1,40 @@
-import { Link } from "react-router-dom";
+import React from "react";
 import { motion } from "framer-motion";
 import { ArrowUp, Lock, ShieldCheck, HeartHandshake } from "lucide-react";
 
-import GradientText from "./reactbits/GradientText";
+// Assets & UI Components
+import logo from "../../assets/logo.png";
+import GradientText from "../reactbits/GradientText";
 
+// --- Configuration & Constants ---
 const LUXURY_EASE_TRANSITION = [0.16, 1, 0.3, 1];
 
 const FOOTER_GROUPS = [
   {
     title: "Platform",
     links: [
-      { label: "Beranda", to: "/" },
-      { label: "Fitur Utama", to: "/#fitur" },
-      { label: "Alur Konseling", to: "/#cara-kerja" },
-      { label: "Portal Konselor", to: "#" },
+      ["Beranda", "/"],
+      ["Fitur Utama", "/#fitur"],
+      ["Alur Konseling", "/#cara-kerja"],
+      ["Portal Konselor", "#"],
     ],
   },
   {
     title: "Bantuan",
     links: [
-      { label: "Pusat FAQ", to: "/#faq" },
-      { label: "Panduan Darurat", to: "#" },
-      { label: "Kontak Dukungan", to: "#" },
-      { label: "Hotline Krisis 24/7", to: "#" },
+      ["Pusat FAQ", "/#faq"],
+      ["Panduan Darurat", "#"],
+      ["Kontak Dukungan", "#"],
+      ["Hotline Krisis 24/7", "#"],
     ],
   },
   {
     title: "Legal",
     links: [
-      { label: "Kebijakan Privasi", to: "#" },
-      { label: "Syarat & Ketentuan", to: "#" },
-      { label: "Standar Keamanan", to: "#" },
-      { label: "Kode Etik Konseling", to: "#" },
+      ["Kebijakan Privasi", "#"],
+      ["Syarat & Ketentuan", "#"],
+      ["Standar Keamanan", "#"],
+      ["Kode Etik Konseling", "#"],
     ],
   },
 ];
@@ -42,6 +45,7 @@ const TRUST_BADGES = [
   { icon: HeartHandshake, label: "Gratis untuk siswa" },
 ];
 
+// --- Main Footer Component ---
 export default function Footer() {
   const handleScrollToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -49,9 +53,10 @@ export default function Footer() {
 
   return (
     <footer className="relative overflow-hidden bg-primary text-slate-300">
+      {/* Decorative Background Blur & Accent Line */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -top-40 left-32 h-105 w-105 rounded-full bg-[#1597A8]/25 blur-3xl"
+        className="pointer-events-none absolute -top-40 left-32 h-105 w-105 rounded-full bg-tertiary/25 blur-3xl"
       />
       <div
         aria-hidden="true"
@@ -63,6 +68,7 @@ export default function Footer() {
       />
 
       <div className="relative mx-auto max-w-7xl px-6 pt-16">
+        {/* Brand Information & Navigation Links */}
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -70,10 +76,15 @@ export default function Footer() {
           transition={{ duration: 0.8, ease: LUXURY_EASE_TRANSITION }}
           className="grid gap-12 py-14 sm:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1fr]"
         >
+          {/* Brand Info & Trust Badges */}
           <div className="space-y-5">
-            <Link to="/" className="inline-flex items-center gap-3" aria-label="LaporKeun! kembali ke beranda">
+            <a
+              href="/"
+              className="inline-flex items-center gap-3"
+              aria-label="LaporKeun! kembali ke beranda"
+            >
               <img
-                src='/assets/images/logo.png'
+                src={logo}
                 alt=""
                 className="h-12 w-12 object-contain"
                 style={{
@@ -84,7 +95,7 @@ export default function Footer() {
               <span className="text-xl font-extrabold text-white">
                 LaporKeun<span className="text-[#E9C46A]">!</span>
               </span>
-            </Link>
+            </a>
 
             <p className="text-sm font-semibold">
               <GradientText colors={["#7FD3DF", "#E9C46A", "#7FD3DF"]} animationSpeed={7}>
@@ -109,29 +120,20 @@ export default function Footer() {
             </ul>
           </div>
 
+          {/* Dynamic Footer Groups Navigation */}
           {FOOTER_GROUPS.map((group) => (
             <nav key={group.title} aria-label={group.title}>
               <h4 className="text-sm font-semibold text-white">{group.title}</h4>
               <ul className="mt-5 space-y-3">
-                {group.links.map((link) => (
-                  <li key={link.label}>
-                    {link.to.startsWith("/") && !link.to.includes("#") ? (
-                      <Link
-                        to={link.to}
-                        className="group relative inline-block text-sm text-slate-400 transition-colors hover:text-white"
-                      >
-                        {link.label}
-                        <span className="absolute -bottom-0.5 left-0 h-px w-full origin-left scale-x-0 bg-[#E9C46A] transition-transform duration-300 group-hover:scale-x-100" />
-                      </Link>
-                    ) : (
-                      <a
-                        href={link.to}
-                        className="group relative inline-block text-sm text-slate-400 transition-colors hover:text-white"
-                      >
-                        {link.label}
-                        <span className="absolute -bottom-0.5 left-0 h-px w-full origin-left scale-x-0 bg-[#E9C46A] transition-transform duration-300 group-hover:scale-x-100" />
-                      </a>
-                    )}
+                {group.links.map(([label, href]) => (
+                  <li key={label}>
+                    <a
+                      href={href}
+                      className="group relative inline-block text-sm text-slate-400 transition-colors hover:text-white focus-visible:text-white"
+                    >
+                      {label}
+                      <span className="absolute -bottom-0.5 left-0 h-px w-full origin-left scale-x-0 bg-[#E9C46A] transition-transform duration-300 group-hover:scale-x-100 group-focus-visible:scale-x-100" />
+                    </a>
                   </li>
                 ))}
               </ul>
@@ -140,6 +142,7 @@ export default function Footer() {
         </motion.div>
       </div>
 
+      {/* Large Decorative Wordmark */}
       <div
         aria-hidden="true"
         className="relative select-none text-center font-extrabold leading-[0.8] whitespace-nowrap mb-[0.12em] text-[clamp(3.5rem,17vw,15rem)]"
@@ -153,6 +156,7 @@ export default function Footer() {
         </GradientText>
       </div>
 
+      {/* Bottom Copyright & Scroll To Top Bar */}
       <div className="relative border-t border-white/10 px-6 py-5">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
           <span>© {new Date().getFullYear()} LaporKeun!. Hak cipta dilindungi undang-undang.</span>

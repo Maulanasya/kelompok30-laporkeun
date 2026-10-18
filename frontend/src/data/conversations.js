@@ -9,7 +9,7 @@ export const conversations = [
   },
   {
     id: 2,
-    name: "Dr. Ijwa, M.Psi.",
+    name: "Dr. Jiya Z, M.Psi.",
     lastMessage: "Bagaimana kondisimu hari ini?",
     time: "12:50",
     online: true,
