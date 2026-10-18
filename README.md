@@ -51,6 +51,7 @@ Buka `http://localhost:5173`. Isi nilai variabel di `.env` sesuai kebutuhan.
 - `dev`: tempat semua fitur digabung dan diuji.
 - Branch fitur dibuat dari `dev`, dengan format `feat/nama-fitur`
   atau `fix/nama-perbaikan`, lalu digabung lewat Pull Request.
+- `ui-korban` : tempat gabungan ui atau fitur pada interface korban bully
 
 ## Tim
 
