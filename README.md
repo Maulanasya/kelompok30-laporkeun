@@ -16,7 +16,7 @@ Proyek Kelompok 30.
 
 - Frontend: React, Vite, Tailwind CSS v4
 - Font: Poppins
-- Backend: belum ditentukan
+- Backend: _belum ditentukan_
 
 ## Struktur Repo
 
@@ -30,10 +30,16 @@ laporkeunkel30/
 ## Menjalankan Frontend
 
 ```bash
-git clone https://github.com/USERNAME/kelompok30-laporkeun.git
+git clone https://github.com/USERNAME/kelompok30-laporkeun.git atau
+git clone -b ui-korban https://github.com/Maulanasya/kelompok30-laporkeun.git (agar yang terambil langsung branch ui-korban)
+jika repositori sudah di-clone sebelumnya
+pindah branch menggunakan
+git fetch origin
+git checkout feat/landing-page
 cd kelompok30-laporkeun/frontend
 copy .env.example .env
 npm install
+npm install motion
 npm run dev
 ```
 
