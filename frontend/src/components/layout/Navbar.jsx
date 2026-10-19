@@ -14,6 +14,7 @@ import StarBorder from "../reactbits/StarBorder";
 import { clearUser, getUser } from "../../utils/auth";
 import logo from "../../assets/logo.png";
 
+// Menu navigasi untuk pengguna terautentikasi (siswa)
 const LOGGED_IN_LINKS = [
   { key: "beranda", to: "/", label: "Beranda" },
   { key: "form-laporan", to: "/form-laporan", label: "Form Laporan" },
@@ -21,6 +22,13 @@ const LOGGED_IN_LINKS = [
   { key: "chat-psikolog", to: "/chat-psikolog", label: "Chat Psikolog" },
 ];
 
+// Menu navigasi khusus untuk peran guru BK
+const BK_LINKS = [
+  { key: "bk-laporan", to: "/bk/laporan", label: "Laporan Masuk" },
+  { key: "bk-konsultasi", to: "/bk/konsultasi", label: "Konsultasi" },
+];
+
+// Menu navigasi berbasis section untuk pengunjung (guest)
 const GUEST_LINKS = [
   { id: "beranda", label: "Beranda" },
   { id: "fitur", label: "Fitur" },
@@ -28,24 +36,30 @@ const GUEST_LINKS = [
   { id: "cara-kerja", label: "Cara Kerja" },
   { id: "artikel", label: "Artikel" },
   { id: "faq", label: "FAQ" },
-].map((l) => ({
-  ...l,
-  key: l.id,
-  to: { pathname: "/", hash: `#${l.id}` },
+].map((link) => ({
+  ...link,
+  key: link.id,
+  to: { pathname: "/", hash: `#${link.id}` },
 }));
 
 const SPRING_TRANSITION = { type: "spring", stiffness: 380, damping: 30 };
 const EASE_OUT_TRANSITION = [0.16, 1, 0.3, 1];
 const NAVBAR_OFFSET = 88;
 
-// Scroll fallback untuk memastikan halaman kembali ke atas di berbagai browser mobile
+// Mengambil data peran pengguna aktif
+const getRole = () => {
+  const user = getUser();
+  return user?.role ?? user?.peran ?? null;
+};
+
+// Fungsi pembantu scroll ke posisi paling atas
 const scrollToTop = () => {
   window.scrollTo({ top: 0, behavior: "smooth" });
   document.documentElement.scrollTo?.({ top: 0, behavior: "smooth" });
   document.body.scrollTo?.({ top: 0, behavior: "smooth" });
 };
 
-// Scroll ke section spesifik dengan penyesuaian offset agar tidak tertutup navbar fixed
+// Memposisikan layar ke section target dengan memperhitungkan tinggi navbar
 const scrollToSection = (id) => {
   if (id === "beranda") {
     scrollToTop();
@@ -165,6 +179,7 @@ export default function Navbar() {
   const [hoveredId, setHoveredId] = useState(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => Boolean(getUser()));
+  const [role, setRole] = useState(getRole);
   const [activeSection, setActiveSection] = useState("beranda");
 
   const location = useLocation();
@@ -174,15 +189,17 @@ export default function Navbar() {
   const { scrollYProgress } = useScroll();
   const progress = useSpring(scrollYProgress, { stiffness: 120, damping: 30 });
 
-  const links = isLoggedIn ? LOGGED_IN_LINKS : GUEST_LINKS;
+  const isBk = isLoggedIn && role === "guru_bk";
+  const links = !isLoggedIn ? GUEST_LINKS : isBk ? BK_LINKS : LOGGED_IN_LINKS;
   const isHome = location.pathname === "/";
 
-  // Re-check status autentikasi setiap kali navigasi berubah
+  // Perbarui status otentikasi saat rute berubah
   useEffect(() => {
     setIsLoggedIn(Boolean(getUser()));
+    setRole(getRole());
   }, [location.pathname]);
 
-  // Efek transisi tampilan navbar saat halaman di-scroll
+  // Pantau posisi scroll untuk mengubah tampilan visual navbar
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 25);
     handleScroll();
@@ -190,36 +207,37 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Scroll-spy: Mendeteksi section aktif saat layar di-scroll pada posisi landing page
+  // Intersection Observer untuk mendeteksi section aktif pada landing page
   useEffect(() => {
     if (!isHome || isLoggedIn) return;
-    const els = GUEST_LINKS.map((l) => document.getElementById(l.id)).filter(Boolean);
-    if (!els.length) return;
+    const elements = GUEST_LINKS.map((l) => document.getElementById(l.id)).filter(Boolean);
+    if (!elements.length) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
-        entries.forEach((e) => {
-          if (e.isIntersecting) setActiveSection(e.target.id);
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) setActiveSection(entry.target.id);
         });
       },
       { rootMargin: "-35% 0px -60% 0px" }
     );
-    els.forEach((el) => observer.observe(el));
+
+    elements.forEach((el) => observer.observe(el));
     return () => observer.disconnect();
   }, [isHome, isLoggedIn]);
 
-  // Penanganan otomatis scroll ke section jika mengakses URL dengan hash (cth: /#fitur) dari luar halaman
+  // Menangani penavigasian langsung ke hash URL dari luar halaman
   useEffect(() => {
     if (!isHome || !location.hash) return;
-    const id = location.hash.slice(1);
+    const targetId = location.hash.slice(1);
 
-    let tries = 0;
+    let attempts = 0;
     const timer = setInterval(() => {
-      tries += 1;
-      if (id === "beranda" || document.getElementById(id)) {
-        scrollToSection(id);
+      attempts += 1;
+      if (targetId === "beranda" || document.getElementById(targetId)) {
+        scrollToSection(targetId);
         clearInterval(timer);
-      } else if (tries >= 10) {
+      } else if (attempts >= 10) {
         clearInterval(timer);
       }
     }, 100);
@@ -227,7 +245,7 @@ export default function Navbar() {
     return () => clearInterval(timer);
   }, [isHome, location.hash]);
 
-  // Accessibility: Menutup modal konfirmasi logout dengan tombol Escape
+  // Navigasi keyboard Escape untuk modal konfirmasi keluar
   useEffect(() => {
     if (!showLogoutConfirm) return;
     const handleKeyDown = (e) => {
@@ -237,6 +255,7 @@ export default function Navbar() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [showLogoutConfirm]);
 
+  // Tutup menu seluler otomatis saat jalur URL berubah
   useEffect(() => {
     setIsMobileOpen(false);
   }, [location.pathname]);
@@ -244,11 +263,12 @@ export default function Navbar() {
   const handleLogout = () => {
     clearUser();
     setIsLoggedIn(false);
+    setRole(null);
     setShowLogoutConfirm(false);
     navigate("/");
   };
 
-  // Penanganan navigasi link dengan penundaan micro (50ms) agar transisi penutupan menu mobile selesai
+  // Menangani klik menu navigasi dan perpindahan posisi layar
   const handleLinkClick = (e, link) => {
     setIsMobileOpen(false);
 
@@ -259,14 +279,14 @@ export default function Navbar() {
     if (targetId) {
       e.preventDefault();
       setActiveSection(targetId);
-      
+
       setTimeout(() => {
         scrollToSection(targetId);
       }, 50);
     }
   };
 
-  // Penentuan indikator menu aktif berdasarkan tipe halaman (Guest Section ID / Logged-in Route Path)
+  // Pengecekan item navigasi mana yang sedang aktif
   const isLinkActive = (link) => {
     if (link.id) return isHome && activeSection === link.id;
     return link.to === "/"
@@ -296,10 +316,14 @@ export default function Navbar() {
 
           <div className="flex items-center justify-between gap-4">
             <Link
-              to="/"
+              to={isBk ? "/bk/laporan" : "/"}
               onClick={() => setIsMobileOpen(false)}
               className="flex items-center gap-3 cursor-pointer shrink-0 group"
-              aria-label="LaporKeun! kembali ke beranda"
+              aria-label={
+                isBk
+                  ? "LaporKeun! kembali ke laporan masuk"
+                  : "LaporKeun! kembali ke beranda"
+              }
             >
               <img
                 src={logo}
@@ -311,7 +335,7 @@ export default function Navbar() {
                   LaporKeun<span className="text-tertiary">!</span>
                 </div>
                 <ShinyText
-                  text="Ruang aman untuk bersuara"
+                  text={isBk ? "Ruang kerja guru BK" : "Ruang aman untuk bersuara"}
                   speed={5}
                   className="hidden sm:block text-[10px] font-medium"
                 />
@@ -506,8 +530,9 @@ export default function Navbar() {
                     Keluar dari akun?
                   </h3>
                   <p className="text-xs text-slate-500 leading-relaxed">
-                    Kamu perlu masuk lagi untuk mengakses laporan dan riwayat
-                    konselingmu.
+                    {isBk
+                      ? "Kamu perlu masuk lagi untuk meninjau laporan dan berkonsultasi dengan siswa."
+                      : "Kamu perlu masuk lagi untuk mengakses laporan dan riwayat konselingmu."}
                   </p>
                 </div>
 

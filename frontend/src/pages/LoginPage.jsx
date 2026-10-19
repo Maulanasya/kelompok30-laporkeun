@@ -26,41 +26,65 @@ const ANIMATION_EASE = [0.22, 1, 0.36, 1];
 
 // --- Form Constants ---
 const NISN_LENGTH = 10;
+const EMAIL_REGEX = /^\S+@\S+\.\S+$/;
+
+// Tujuan setelah login berdasarkan peran akun.
+// Sesuaikan path dengan route di App.jsx (halaman BK & psikolog belum ada).
+const ROLE_HOME = {
+  siswa: "/",
+  guru_bk: "/bk/laporan",
+  psikolog: "/psikolog/siswa",
+};
+const getRoleHome = (peran) => ROLE_HOME[peran] || "/";
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ nisn: "", password: "", remember: false });
+  const [form, setForm] = useState({
+    identifier: "",
+    password: "",
+    remember: false,
+  });
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Sudah login? Tidak perlu melihat halaman login lagi
+  // Sudah login? Arahkan ke beranda sesuai perannya
   // (diletakkan setelah semua hooks agar urutan hooks tetap konsisten)
-  if (getUser()) return <Navigate to="/" replace />;
+  const currentUser = getUser();
+  if (currentUser) {
+    return <Navigate to={getRoleHome(currentUser.peran)} replace />;
+  }
 
-  // Sanitasi input NISN (hanya angka) & penanganan checkbox
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    const next =
-      name === "nisn" ? value.replace(/\D/g, "").slice(0, NISN_LENGTH) : value;
 
     setForm((prev) => ({
       ...prev,
-      [name]: type === "checkbox" ? checked : next,
+      [name]: type === "checkbox" ? checked : value,
     }));
     setErrors((prev) => ({ ...prev, [name]: "" }));
     setServerError("");
   };
 
+  // Deteksi jenis identifier: "email" jika ada @, selain itu dianggap NISN
+  const detectType = (value) => (value.includes("@") ? "email" : "nisn");
+
   // Validasi form lokal
   const validate = () => {
     const nextErrors = {};
+    const id = form.identifier.trim();
 
-    if (!form.nisn) {
-      nextErrors.nisn = "NISN wajib diisi.";
-    } else if (form.nisn.length !== NISN_LENGTH) {
-      nextErrors.nisn = `NISN terdiri dari ${NISN_LENGTH} angka.`;
+    if (!id) {
+      nextErrors.identifier = "NISN atau email wajib diisi.";
+    } else if (detectType(id) === "email") {
+      if (!EMAIL_REGEX.test(id)) {
+        nextErrors.identifier = "Format email belum benar.";
+      }
+    } else if (!/^\d+$/.test(id)) {
+      nextErrors.identifier = "NISN hanya berisi angka, atau masukkan email.";
+    } else if (id.length !== NISN_LENGTH) {
+      nextErrors.identifier = `NISN terdiri dari ${NISN_LENGTH} angka.`;
     }
 
     if (!form.password) {
@@ -79,22 +103,41 @@ export default function LoginPage() {
     setLoading(true);
     setServerError("");
 
+    const identifier = form.identifier.trim();
+    const type = detectType(identifier);
+
     try {
       // TODO: Hubungkan ke endpoint API autentikasi / login
       // const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
       //   method: "POST",
       //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify({ nisn: form.nisn, password: form.password }),
+      //   body: JSON.stringify({ identifier, type, password: form.password }),
       // });
-      // if (!res.ok) throw new Error((await res.json()).message || "NISN atau password salah.");
-      // const data = await res.json(); // { user, token }
+      // if (!res.ok) throw new Error((await res.json()).message || "NISN/email atau password salah.");
+      // const data = await res.json(); // { user: { nama, peran, ... }, token }
       await new Promise((r) => setTimeout(r, 800));
 
-      // Sementara: data user dummy. Ganti dengan data dari backend.
-      saveUser({ nisn: form.nisn, nama: "Siswa" }, form.remember);
+      // --- DUMMY (hapus saat backend siap) ---
+      // email berawalan "bk" -> guru_bk, "psikolog" -> psikolog, lainnya siswa
+      const dummyPeran =
+        type === "email" && identifier.toLowerCase().startsWith("bk")
+          ? "guru_bk"
+          : type === "email" && identifier.toLowerCase().startsWith("psikolog")
+          ? "psikolog"
+          : "siswa";
+      const data = {
+        user: {
+          nama: dummyPeran === "siswa" ? "Siswa" : "Petugas",
+          peran: dummyPeran,
+          ...(type === "nisn" ? { nisn: identifier } : { email: identifier }),
+        },
+      };
+      // --- END DUMMY ---
+
+      saveUser(data.user, form.remember);
 
       // replace: tombol Back dari beranda tidak kembali ke halaman login
-      navigate("/", { replace: true });
+      navigate(getRoleHome(data.user.peran), { replace: true });
     } catch (err) {
       setServerError(err.message || "Gagal masuk. Coba lagi sebentar lagi.");
     } finally {
@@ -174,14 +217,14 @@ export default function LoginPage() {
                 </div>
               )}
 
-              {/* NISN Field */}
+              {/* NISN / Email Field */}
               <div className="space-y-2">
                 <label
-                  htmlFor="nisn"
+                  htmlFor="identifier"
                   className="block text-sm font-semibold"
                   style={{ color: COLOR_PRIMARY }}
                 >
-                  NISN
+                  NISN atau Email
                 </label>
                 <div className="relative">
                   <IdCard
@@ -189,22 +232,29 @@ export default function LoginPage() {
                     className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
                   />
                   <input
-                    id="nisn"
-                    name="nisn"
+                    id="identifier"
+                    name="identifier"
                     type="text"
-                    inputMode="numeric"
+                    inputMode="email"
                     autoComplete="username"
-                    value={form.nisn}
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    value={form.identifier}
                     onChange={handleChange}
-                    placeholder="Masukkan NISN"
-                    aria-invalid={!!errors.nisn}
-                    aria-describedby={errors.nisn ? "nisn-error" : undefined}
-                    className={inputClass(errors.nisn)}
+                    placeholder="Masukkan NISN atau email"
+                    aria-invalid={!!errors.identifier}
+                    aria-describedby={
+                      errors.identifier ? "identifier-error" : undefined
+                    }
+                    className={inputClass(errors.identifier)}
                   />
                 </div>
-                {errors.nisn && (
-                  <p id="nisn-error" className="text-xs text-red-600 pl-4">
-                    {errors.nisn}
+                {errors.identifier && (
+                  <p
+                    id="identifier-error"
+                    className="text-xs text-red-600 pl-4"
+                  >
+                    {errors.identifier}
                   </p>
                 )}
               </div>

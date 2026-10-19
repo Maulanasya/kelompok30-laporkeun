@@ -1,5 +1,5 @@
 import React from "react";
-import { Routes, Route, Link } from "react-router-dom";
+import { Routes, Route, Link, Navigate } from "react-router-dom";
 
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
@@ -13,6 +13,10 @@ import FormLaporanPage from "./pages/FormLaporanPage";
 import RiwayatLaporan from "./pages/RiwayatLaporan";
 import ChatPsikolog from "./pages/ChatPsikolog";
 import ProfilePage from "./pages/ProfilePage";
+import RequireRole from "./components/RequireRole";
+import BkDashboard from "./pages/bk/BkDashboard";
+import BkDetailLaporan from "./pages/bk/BkDetailLaporan";
+import BkKonsultasi from "./pages/bk/BkKonsultasi";
 
 const ComingSoon = ({ name }) => (
   <div className="min-h-screen grid place-items-center text-slate-600 text-center px-6">
@@ -37,13 +41,21 @@ export default function App() {
       <Route path="/verifikasi-kode" element={<VerifyCodePage />} />
       <Route path="/buat-sandi-baru" element={<NewPasswordPage />} />
 
-      {/* Fitur Laporan & Konsultasi */}
+      {/* Fitur Laporan & Konsultasi (siswa) */}
       <Route path="/form-laporan" element={<FormLaporanPage />} />
       <Route path="/riwayat-laporan" element={<RiwayatLaporan />} />
       <Route path="/chat-psikolog" element={<ChatPsikolog />} />
 
       {/* Profil */}
       <Route path="/profile" element={<ProfilePage />} />
+
+      {/* Area Guru BK: hanya peran guru_bk */}
+      <Route path="/bk" element={<Navigate to="/bk/laporan" replace />} />
+      <Route element={<RequireRole allow={["guru_bk"]} />}>
+        <Route path="/bk/laporan" element={<BkDashboard />} />
+        <Route path="/bk/laporan/:kode" element={<BkDetailLaporan />} />
+        <Route path="/bk/konsultasi" element={<BkKonsultasi />} />
+      </Route>
 
       {/* Fallback untuk route yang belum didefinisikan */}
       <Route path="*" element={<ComingSoon name="yang kamu cari" />} />

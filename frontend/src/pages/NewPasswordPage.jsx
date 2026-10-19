@@ -48,7 +48,7 @@ function PasswordField({ id, label, value, onChange, placeholder, error, autoCom
           placeholder={placeholder}
           aria-invalid={!!error}
           aria-describedby={error ? `${id}-error` : undefined}
-          className={`w-full rounded-full bg-white border pl-12 pr-12 py-3.5 text-sm outline-none transition placeholder:text-slate-400 focus:border-[#1597A8] focus:ring-4 focus:ring-cyan-100 ${
+          className={`w-full rounded-full bg-white border pl-12 pr-12 py-3.5 text-sm outline-none transition placeholder:text-slate-400 focus:border-tertiary focus:ring-4 focus:ring-cyan-100 ${
             error ? "border-red-400" : "border-slate-200"
           }`}
         />
@@ -56,7 +56,7 @@ function PasswordField({ id, label, value, onChange, placeholder, error, autoCom
           type="button"
           onClick={() => setShow((v) => !v)}
           aria-label={show ? "Sembunyikan password" : "Tampilkan password"}
-          className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#1597A8] transition cursor-pointer"
+          className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-tertiary transition cursor-pointer"
         >
           {show ? <EyeOff size={18} /> : <Eye size={18} />}
         </button>
@@ -148,7 +148,7 @@ export default function NewPasswordPage() {
         {/* Background Decorative Blurs */}
         <div
           aria-hidden="true"
-          className="absolute -top-40 -left-32 w-130 h-130 rounded-full bg-[#1597A8]/15 blur-3xl pointer-events-none"
+          className="absolute -top-40 -left-32 w-130 h-130 rounded-full bg-tertiary/15 blur-3xl pointer-events-none"
         />
         <div
           aria-hidden="true"
@@ -223,7 +223,7 @@ export default function NewPasswordPage() {
                     <BlurText
                       text="Buat kata sandi baru"
                       delay={90}
-                      className="text-3xl md:text-4xl font-bold leading-[1.15] flex-wrap text-[#0F4C5C]"
+                      className="text-3xl md:text-4xl font-bold leading-[1.15] flex-wrap text-primary"
                     />
                     <p className="text-sm text-slate-600 leading-relaxed">
                       {email ? (
