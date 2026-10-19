@@ -263,7 +263,7 @@ function FloatingAIChat() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
             transition={{ duration: 0.2, ease: ANIMATION_EASE }}
-            className="w-[340px] sm:w-[380px] h-[480px] bg-white rounded-3xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden"
+            className="w-85 sm:w-95 h-120 bg-white rounded-3xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden"
           >
             {/* Header Chat */}
             <div
@@ -696,7 +696,7 @@ export default function LandingPage() {
 
       {/* ================= BANTUAN DARURAT BANNER ================= */}
       <section className="px-6 pb-20 bg-[#F4F9F9]">
-        <div className="max-w-7xl mx-auto rounded-3xl bg-gradient-to-br from-[#FFF6E0] to-[#FDEBC0] p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-6">
+        <div className="max-w-7xl mx-auto rounded-3xl bg-linear-to-br from-[#FFF6E0] to-[#FDEBC0] p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="text-center md:text-left">
             <h3 className="text-xl font-bold" style={{ color: COLOR_PRIMARY }}>
               Butuh bantuan sekarang?
