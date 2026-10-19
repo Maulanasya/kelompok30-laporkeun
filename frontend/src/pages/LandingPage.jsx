@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Shield,
@@ -14,7 +14,12 @@ import {
   KeyRound,
   Search,
   HeartHandshake,
+  Bot,
+  X,
+  Send,
+  Sparkles,
 } from "lucide-react";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // Components
 import Navbar from "../components/layout/Navbar";
@@ -31,6 +36,10 @@ import { images } from "../assets";
 const COLOR_PRIMARY = "#023346";
 const COLOR_TERTIARY = "#3191A0";
 const ANIMATION_EASE = [0.22, 1, 0.36, 1];
+
+// Inisialisasi SDK Gemini dengan API key dari file .env
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
 
 // --- Static Data ---
 const FEATURES = [
@@ -148,6 +157,196 @@ const STATS = [
   { to: 100, suffix: "%", label: "gratis untuk siswa", sep: "" },
 ];
 
+// --- Sub-Komponen Floating AI Chat Widget ---
+function FloatingAIChat() {
+  const [isOpen, setIsOpen] = useState(false);
+  const [messages, setMessages] = useState([
+    {
+      sender: "ai",
+      text: "Halo! Saya Asisten AI LaporKeun!. Ada yang ingin kamu tanyakan seputar perundungan, kesehatan mental, atau cara kerja platform ini?",
+    },
+  ]);
+  const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    if (isOpen) scrollToBottom();
+  }, [messages, isOpen]);
+
+  const handleSend = async (e) => {
+    e.preventDefault();
+    if (!input.trim() || isLoading) return;
+
+    const userText = input.trim();
+    setInput("");
+    setMessages((prev) => [...prev, { sender: "user", text: userText }]);
+    setIsLoading(true);
+
+    if (!genAI) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          sender: "ai",
+          text: "API Key belum terkonfigurasi. Pastikan VITE_GEMINI_API_KEY sudah diisi di file .env.",
+        },
+      ]);
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const model = genAI.getGenerativeModel({
+        model: "gemini-3.8-flash",
+        systemInstruction:
+          "Kamu adalah Asisten AI LaporKeun!, platform pelaporan perundungan (bullying) dan dukungan kesehatan mental sekolah. Tugasmu memberikan edukasi umum seputar perundungan, cyberbullying, hak perlindungan siswa, kesehatan mental dasar, serta petunjuk penggunaan aplikasi. Jawab dengan ramah, empati, singkat, dan mudah dipahami siswa. Ingatkan pengguna bahwa kamu bukan pengganti konselor atau psikolog profesional jika memerlukan penanganan serius.",
+      });
+
+      const result = await model.generateContent(userText);
+      const response = await result.response;
+      const aiReply = response.text();
+
+      setMessages((prev) => [...prev, { sender: "ai", text: aiReply }]);
+    } catch (error) {
+      console.error("Gemini API Error:", error);
+      setMessages((prev) => [
+        ...prev,
+        {
+          sender: "ai",
+          text: "Maaf, terjadi kendala saat terhubung ke AI. Silakan coba beberapa saat lagi.",
+        },
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-4">
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            transition={{ duration: 0.2, ease: ANIMATION_EASE }}
+            className="w-[340px] sm:w-[380px] h-[480px] bg-white rounded-3xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden"
+          >
+            {/* Header Chat */}
+            <div
+              className="p-4 text-white flex items-center justify-between shrink-0"
+              style={{ background: COLOR_PRIMARY }}
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/10 rounded-full text-cyan-300">
+                  <Bot size={20} />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-sm flex items-center gap-1.5">
+                    Tanya AI LaporKeun!{" "}
+                    <Sparkles size={14} className="text-amber-300" />
+                  </h4>
+                  <p className="text-[11px] text-slate-300">
+                    Asisten Edukasi & Informasi
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsOpen(false)}
+                aria-label="Tutup Chat"
+                className="p-1.5 hover:bg-white/10 rounded-full transition cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Message Body */}
+            <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-[#F4F9F9] text-sm">
+              {messages.map((msg, idx) => (
+                <div
+                  key={idx}
+                  className={`flex gap-2 ${
+                    msg.sender === "user" ? "justify-end" : "justify-start"
+                  }`}
+                >
+                  {msg.sender === "ai" && (
+                    <div
+                      className="w-7 h-7 rounded-full flex items-center justify-center text-white shrink-0 mt-1"
+                      style={{ background: COLOR_TERTIARY }}
+                    >
+                      <Bot size={14} />
+                    </div>
+                  )}
+                  <div
+                    className={`max-w-[78%] p-3 rounded-2xl text-xs sm:text-sm leading-relaxed ${
+                      msg.sender === "user"
+                        ? "bg-[#023346] text-white rounded-br-none"
+                        : "bg-white text-slate-800 border border-slate-200 shadow-sm rounded-bl-none"
+                    }`}
+                  >
+                    {msg.text}
+                  </div>
+                </div>
+              ))}
+
+              {isLoading && (
+                <div className="flex gap-2 items-center text-slate-400 text-xs italic">
+                  <Bot size={14} className="animate-spin" /> AI sedang mengetik...
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Input Form */}
+            <form
+              onSubmit={handleSend}
+              className="p-3 bg-white border-t border-slate-200 flex items-center gap-2 shrink-0"
+            >
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Tanyakan sesuatu seputar bullying..."
+                className="flex-1 text-xs sm:text-sm px-3.5 py-2.5 border border-slate-200 rounded-full outline-none focus:border-tertiary"
+              />
+              <button
+                type="submit"
+                disabled={!input.trim() || isLoading}
+                aria-label="Kirim Pesan"
+                className="p-2.5 rounded-full text-white disabled:opacity-50 transition cursor-pointer shrink-0"
+                style={{ background: COLOR_TERTIARY }}
+              >
+                <Send size={15} />
+              </button>
+            </form>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Floating Toggle Button (disembunyikan saat chat terbuka) */}
+      {!isOpen && (
+        <motion.button
+          initial={{ opacity: 0, scale: 0.85 }}
+          animate={{ opacity: 1, scale: 1 }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setIsOpen(true)}
+          className="flex items-center gap-2.5 px-5 py-3.5 rounded-full text-white shadow-xl shadow-cyan-950/20 cursor-pointer"
+          style={{ background: COLOR_PRIMARY }}
+        >
+          <Sparkles size={18} className="text-amber-300" />
+          <span className="text-sm font-semibold">Tanya AI</span>
+        </motion.button>
+      )}
+    </div>
+  );
+}
+
+// --- Main Component ---
 export default function LandingPage() {
   const [ticket, setTicket] = useState("");
   const [openFaq, setOpenFaq] = useState(0);
@@ -167,7 +366,7 @@ export default function LandingPage() {
 
   return (
     <div
-      className="min-h-screen flex flex-col bg-[#F4F9F9] text-slate-800 selection:bg-cyan-100 overflow-x-hidden"
+      className="min-h-screen flex flex-col bg-[#F4F9F9] text-slate-800 selection:bg-cyan-100 overflow-x-hidden relative"
       style={{ fontFamily: "'Plus Jakarta Sans', 'Poppins', sans-serif" }}
     >
       {/* Dynamic Font & Smooth Scroll Styles */}
@@ -368,7 +567,7 @@ export default function LandingPage() {
                 spotlightColor="rgba(233,196,106,0.2)"
                 className="bg-white/5 border-white/10"
               >
-                <Icon size={22} className="text-accent mb-3" />
+                <Icon size={22} className="text-amber-300 mb-3" />
                 <h3 className="font-semibold mb-1">{title}</h3>
                 <p className="text-sm text-slate-300 leading-relaxed">{desc}</p>
               </SpotlightCard>
@@ -397,7 +596,7 @@ export default function LandingPage() {
               {WORKFLOW_STEPS.map((step, index) => (
                 <li key={step.t} className="pl-8 relative">
                   <span
-                    className="absolute -left-4.25 top-0 w-8 h-8 rounded-full text-white text-xs font-bold flex items-center justify-center ring-4 ring-white"
+                    className="absolute -left-4 top-0 w-8 h-8 rounded-full text-white text-xs font-bold flex items-center justify-center ring-4 ring-white"
                     style={{ background: COLOR_PRIMARY }}
                   >
                     {index + 1}
@@ -468,14 +667,14 @@ export default function LandingPage() {
 
       {/* ================= BANTUAN DARURAT BANNER ================= */}
       <section className="px-6 pb-20 bg-[#F4F9F9]">
-        <div className="max-w-7xl mx-auto rounded-3xl bg-linear-to-br from-[#FFF6E0] to-[#FDEBC0] p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-6">
+        <div className="max-w-7xl mx-auto rounded-3xl bg-gradient-to-br from-[#FFF6E0] to-[#FDEBC0] p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="text-center md:text-left">
             <h3 className="text-xl font-bold" style={{ color: COLOR_PRIMARY }}>
               Butuh bantuan sekarang?
             </h3>
             <p className="text-sm text-slate-700 mt-1 max-w-xl">
               Kalau kamu atau temanmu dalam situasi berbahaya, hubungi tim
-              siaga darurat kami. mereka siap membantu setiap saat.
+              siaga darurat kami. Mereka siap membantu setiap saat.
             </p>
           </div>
           <a
@@ -573,6 +772,9 @@ export default function LandingPage() {
       </section>
 
       <Footer />
+
+      {/* ================= FLOATING AI CHAT WIDGET ================= */}
+      <FloatingAIChat />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import React from "react";
-import { Routes, Route, Link, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
@@ -13,21 +13,11 @@ import FormLaporanPage from "./pages/FormLaporanPage";
 import RiwayatLaporan from "./pages/RiwayatLaporan";
 import ChatPsikolog from "./pages/ChatPsikolog";
 import ProfilePage from "./pages/ProfilePage";
+import NotFoundPage from "./pages/NotFoundPage";
 import RequireRole from "./components/RequireRole";
 import BkDashboard from "./pages/bk/BkDashboard";
 import BkDetailLaporan from "./pages/bk/BkDetailLaporan";
 import BkKonsultasi from "./pages/bk/BkKonsultasi";
-
-const ComingSoon = ({ name }) => (
-  <div className="min-h-screen grid place-items-center text-slate-600 text-center px-6">
-    <div className="space-y-3">
-      <p>Halaman {name} belum dibuat.</p>
-      <Link to="/" className="text-sm font-semibold text-tertiary hover:underline">
-        Kembali ke beranda
-      </Link>
-    </div>
-  </div>
-);
 
 export default function App() {
   return (
@@ -57,8 +47,11 @@ export default function App() {
         <Route path="/bk/konsultasi" element={<BkKonsultasi />} />
       </Route>
 
-      {/* Fallback untuk route yang belum didefinisikan */}
-      <Route path="*" element={<ComingSoon name="yang kamu cari" />} />
+      {/* Area psikolog: halaman belum dibuat (tujuan login peran psikolog) */}
+      <Route path="/psikolog/*" element={<NotFoundPage variant="soon" />} />
+
+      {/* Fallback 404 */}
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 }
