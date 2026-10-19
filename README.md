@@ -35,7 +35,7 @@ git clone -b ui-korban https://github.com/Maulanasya/kelompok30-laporkeun.git (a
 jika repositori sudah di-clone sebelumnya
 pindah branch menggunakan
 git fetch origin
-git checkout feat/landing-page
+git checkout ui-korban
 cd kelompok30-laporkeun/frontend
 copy .env.example .env
 npm install
