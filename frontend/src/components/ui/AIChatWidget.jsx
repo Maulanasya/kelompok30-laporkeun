@@ -41,7 +41,6 @@ export default function AIChatWidget() {
     setMessages((prev) => [...prev, { sender: "user", text: userText }]);
     setIsLoading(true);
 
-    // Proteksi jika VITE_GEMINI_API_KEY belum dipasang di .env
     if (!genAI) {
       setMessages((prev) => [
         ...prev,
@@ -55,7 +54,7 @@ export default function AIChatWidget() {
     }
 
     try {
-      // Inisialisasi model Gemini 1.5 Flash
+      // Inisialisasi model Gemini 3.8 Flash
       const model = genAI.getGenerativeModel({
         model: "gemini-3.8-flash",
         systemInstruction:
@@ -92,7 +91,7 @@ export default function AIChatWidget() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
             transition={{ duration: 0.2, ease: ANIMATION_EASE }}
-            className="mb-4 w-[340px] sm:w-[380px] h-[480px] bg-white rounded-3xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden"
+            className="mb-4 w-85 sm:w-95 h-120 bg-white rounded-3xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden"
           >
             {/* Chat Header */}
             <div
