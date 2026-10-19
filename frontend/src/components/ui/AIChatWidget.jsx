@@ -12,6 +12,43 @@ const ANIMATION_EASE = [0.22, 1, 0.36, 1];
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
 
+const GEMINI_MODELS = [
+  import.meta.env.VITE_GEMINI_MODEL,
+  "gemini-3.8-flash",
+  "gemini-3.6-flash",
+  "gemini-3.5-flash-lite",
+].filter((name, i, arr) => name && arr.indexOf(name) === i);
+
+const RETRYABLE_STATUS = [404, 429, 500, 503];
+
+const SYSTEM_INSTRUCTION =
+  "Kamu adalah Asisten AI LaporKeun!, sebuah platform pelaporan perundungan (bullying) dan dukungan kesehatan mental siswa di sekolah. Tugasmu adalah memberikan edukasi umum seputar perundungan, cyberbullying, hak perlindungan siswa, kesehatan mental dasar, serta petunjuk penggunaan platform LaporKeun!. Jawablah dengan bahasa yang ramah, santun, empati, singkat, dan mudah dipahami siswa. Ingatkan pengguna secara halus bahwa kamu bukan pengganti konselor atau psikolog profesional jika mereka membutuhkan bantuan intensif.";
+
+// Panggil Gemini dengan cadangan model
+async function generateWithFallback(userText) {
+  let lastError = null;
+
+  for (const modelName of GEMINI_MODELS) {
+    try {
+      const model = genAI.getGenerativeModel({
+        model: modelName,
+        systemInstruction: SYSTEM_INSTRUCTION,
+      });
+      const result = await model.generateContent(userText);
+      const response = await result.response;
+      return response.text();
+    } catch (error) {
+      lastError = error;
+      console.warn(
+        `[Gemini] Model ${modelName} gagal (status ${error?.status ?? "?"}), mencoba model berikutnya...`
+      );
+      if (!RETRYABLE_STATUS.includes(error?.status)) throw error;
+    }
+  }
+
+  throw lastError;
+}
+
 export default function AIChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
@@ -54,17 +91,8 @@ export default function AIChatWidget() {
     }
 
     try {
-      // Inisialisasi model Gemini 3.8 Flash
-      const model = genAI.getGenerativeModel({
-        model: "gemini-3.8-flash",
-        systemInstruction:
-          "Kamu adalah Asisten AI LaporKeun!, sebuah platform pelaporan perundungan (bullying) dan dukungan kesehatan mental siswa di sekolah. Tugasmu adalah memberikan edukasi umum seputar perundungan, cyberbullying, hak perlindungan siswa, kesehatan mental dasar, serta petunjuk penggunaan platform LaporKeun!. Jawablah dengan bahasa yang ramah, santun, empati, singkat, dan mudah dipahami siswa. Ingatkan pengguna secara halus bahwa kamu bukan pengganti konselor atau psikolog profesional jika mereka membutuhkan bantuan intensif.",
-      });
-
-      // Panggil API Gemini
-      const result = await model.generateContent(userText);
-      const response = await result.response;
-      const aiReply = response.text();
+      // Panggil API Gemini (otomatis pindah model kalau yang utama sibuk)
+      const aiReply = await generateWithFallback(userText);
 
       setMessages((prev) => [...prev, { sender: "ai", text: aiReply }]);
     } catch (error) {
@@ -82,7 +110,7 @@ export default function AIChatWidget() {
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-50">
+    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-4">
       {/* Container Chat Modal */}
       <AnimatePresence>
         {isOpen && (
@@ -91,7 +119,7 @@ export default function AIChatWidget() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
             transition={{ duration: 0.2, ease: ANIMATION_EASE }}
-            className="mb-4 w-85 sm:w-95 h-120 bg-white rounded-3xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden"
+            className="w-85 sm:w-95 h-120 bg-white rounded-3xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden"
           >
             {/* Chat Header */}
             <div
@@ -184,17 +212,21 @@ export default function AIChatWidget() {
         )}
       </AnimatePresence>
 
-      {/* Floating Toggle Button */}
-      <motion.button
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2.5 px-5 py-3.5 rounded-full text-white shadow-xl shadow-cyan-950/20 cursor-pointer"
-        style={{ background: COLOR_PRIMARY }}
-      >
-        <Sparkles size={18} className="text-amber-300" />
-        <span className="text-sm font-semibold">Tanya AI</span>
-      </motion.button>
+      {/* Floating Toggle Button (disembunyikan saat chat terbuka) */}
+      {!isOpen && (
+        <motion.button
+          initial={{ opacity: 0, scale: 0.85 }}
+          animate={{ opacity: 1, scale: 1 }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setIsOpen(true)}
+          className="flex items-center gap-2.5 px-5 py-3.5 rounded-full text-white shadow-xl shadow-cyan-950/20 cursor-pointer"
+          style={{ background: COLOR_PRIMARY }}
+        >
+          <Sparkles size={18} className="text-amber-300" />
+          <span className="text-sm font-semibold">Tanya AI</span>
+        </motion.button>
+      )}
     </div>
   );
 }

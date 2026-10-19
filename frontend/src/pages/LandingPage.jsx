@@ -41,6 +41,43 @@ const ANIMATION_EASE = [0.22, 1, 0.36, 1];
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
 
+const GEMINI_MODELS = [
+  import.meta.env.VITE_GEMINI_MODEL,
+  "gemini-3.8-flash",
+  "gemini-3.6-flash",
+  "gemini-3.5-flash-lite",
+].filter((name, i, arr) => name && arr.indexOf(name) === i);
+
+const RETRYABLE_STATUS = [404, 429, 500, 503];
+
+const SYSTEM_INSTRUCTION =
+  "Kamu adalah Asisten AI LaporKeun!, platform pelaporan perundungan (bullying) dan dukungan kesehatan mental sekolah. Tugasmu memberikan edukasi umum seputar perundungan, cyberbullying, hak perlindungan siswa, kesehatan mental dasar, serta petunjuk penggunaan aplikasi. Jawab dengan ramah, empati, singkat, dan mudah dipahami siswa. Ingatkan pengguna bahwa kamu bukan pengganti konselor atau psikolog profesional jika memerlukan penanganan serius.";
+
+// Panggil Gemini dengan cadangan model
+async function generateWithFallback(userText) {
+  let lastError = null;
+
+  for (const modelName of GEMINI_MODELS) {
+    try {
+      const model = genAI.getGenerativeModel({
+        model: modelName,
+        systemInstruction: SYSTEM_INSTRUCTION,
+      });
+      const result = await model.generateContent(userText);
+      const response = await result.response;
+      return response.text();
+    } catch (error) {
+      lastError = error;
+      console.warn(
+        `[Gemini] Model ${modelName} gagal (status ${error?.status ?? "?"}), mencoba model berikutnya...`
+      );
+      if (!RETRYABLE_STATUS.includes(error?.status)) throw error;
+    }
+  }
+
+  throw lastError;
+}
+
 // --- Static Data ---
 const FEATURES = [
   {
@@ -200,15 +237,7 @@ function FloatingAIChat() {
     }
 
     try {
-      const model = genAI.getGenerativeModel({
-        model: "gemini-3.8-flash",
-        systemInstruction:
-          "Kamu adalah Asisten AI LaporKeun!, platform pelaporan perundungan (bullying) dan dukungan kesehatan mental sekolah. Tugasmu memberikan edukasi umum seputar perundungan, cyberbullying, hak perlindungan siswa, kesehatan mental dasar, serta petunjuk penggunaan aplikasi. Jawab dengan ramah, empati, singkat, dan mudah dipahami siswa. Ingatkan pengguna bahwa kamu bukan pengganti konselor atau psikolog profesional jika memerlukan penanganan serius.",
-      });
-
-      const result = await model.generateContent(userText);
-      const response = await result.response;
-      const aiReply = response.text();
+      const aiReply = await generateWithFallback(userText);
 
       setMessages((prev) => [...prev, { sender: "ai", text: aiReply }]);
     } catch (error) {
@@ -234,7 +263,7 @@ function FloatingAIChat() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
             transition={{ duration: 0.2, ease: ANIMATION_EASE }}
-            className="w-85 sm:w-95 h-120 bg-white rounded-3xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden"
+            className="w-[340px] sm:w-[380px] h-[480px] bg-white rounded-3xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden"
           >
             {/* Header Chat */}
             <div
@@ -667,7 +696,7 @@ export default function LandingPage() {
 
       {/* ================= BANTUAN DARURAT BANNER ================= */}
       <section className="px-6 pb-20 bg-[#F4F9F9]">
-        <div className="max-w-7xl mx-auto rounded-3xl bg-linear-to-br from-[#FFF6E0] to-[#FDEBC0] p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-6">
+        <div className="max-w-7xl mx-auto rounded-3xl bg-gradient-to-br from-[#FFF6E0] to-[#FDEBC0] p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="text-center md:text-left">
             <h3 className="text-xl font-bold" style={{ color: COLOR_PRIMARY }}>
               Butuh bantuan sekarang?
