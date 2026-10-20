@@ -32,6 +32,9 @@ const ANIMATION_EASE = [0.22, 1, 0.36, 1];
 const NISN_LENGTH = 10;
 const MIN_PASSWORD = 8;
 
+// Urutan kolom di form (dipakai untuk memilih kolom yang difokuskan saat ada error dari server)
+const FIELD_ORDER = ["nisn", "nama", "email", "kelas", "password"];
+
 const KELAS_GROUPS = [
   { label: "Kelas X", options: ["X-1", "X-2", "X-3"] },
   { label: "Kelas XI", options: ["XI-1", "XI-2", "XI-3"] },
@@ -74,8 +77,10 @@ const Field = ({ id, label, icon: Icon, error, children }) => (
 );
 
 const inputClass = (hasError, extra = "") =>
-  `w-full rounded-full bg-white border pl-12 pr-4 py-3.5 text-sm outline-none transition placeholder:text-slate-400 focus:border-[#1597A8] focus:ring-4 focus:ring-cyan-100 ${
-    hasError ? "border-red-400" : "border-slate-200"
+  `w-full rounded-full bg-white border pl-12 pr-4 py-3.5 text-sm outline-none transition placeholder:text-slate-400 focus:ring-4 ${
+    hasError
+      ? "border-red-400 focus:border-red-500 focus:ring-red-100"
+      : "border-slate-200 focus:border-[#1597A8] focus:ring-cyan-100"
   } ${extra}`;
 
 export default function RegisterPage() {
@@ -141,7 +146,7 @@ export default function RegisterPage() {
     setServerError("");
 
     try {
-      // register() dari AuthContext -> { success, message }
+      // register() dari AuthContext -> { success, message, field, errors }
       const result = await register({
         nisn: form.nisn,
         nama: form.nama.trim(),
@@ -151,25 +156,34 @@ export default function RegisterPage() {
       });
 
       if (!result?.success) {
-        throw new Error(result?.message || "Gagal mendaftar.");
+        // Server mengirim error per kolom -> tampilkan masing-masing di bawah kolomnya.
+        // Email dan NISN dipisah, jadi keduanya bisa muncul bersamaan kalau dua-duanya sudah dipakai.
+        const fromServer =
+          result?.errors ??
+          (result?.field ? { [result.field]: result.message } : {});
+
+        const fieldErrors = {};
+        FIELD_ORDER.forEach((key) => {
+          if (fromServer[key]) fieldErrors[key] = fromServer[key];
+        });
+
+        const firstField = FIELD_ORDER.find((key) => fieldErrors[key]);
+        if (firstField) {
+          setErrors((prev) => ({ ...prev, ...fieldErrors }));
+          document.getElementById(firstField)?.focus();
+        } else {
+          // Error umum (koneksi, server, dll) -> banner di atas form
+          setServerError(
+            result?.message || "Gagal mendaftar. Coba lagi sebentar lagi."
+          );
+        }
+        return;
       }
 
       // Pendaftaran berhasil -> arahkan ke halaman login
       navigate("/login", { replace: true });
     } catch (err) {
-      const msg = err.message || "Gagal mendaftar. Coba lagi sebentar lagi.";
-      const lower = msg.toLowerCase();
-
-      // Tampilkan peringatan tepat di bawah kolom yang bermasalah
-      if (lower.includes("email")) {
-        setErrors((prev) => ({ ...prev, email: msg }));
-        document.getElementById("email")?.focus();
-      } else if (lower.includes("nisn")) {
-        setErrors((prev) => ({ ...prev, nisn: msg }));
-        document.getElementById("nisn")?.focus();
-      } else {
-        setServerError(msg);
-      }
+      setServerError(err.message || "Gagal mendaftar. Coba lagi sebentar lagi.");
     } finally {
       setLoading(false);
     }

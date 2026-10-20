@@ -42,8 +42,8 @@ model User {
   id        String   @id @default(uuid())
   nama      String
   email     String   @unique
-  nisn      String   @unique
-  password  String?   // simpan hash bcrypt
+  nisn      String?   @unique
+  password  String   // simpan hash bcrypt
   role      Role     @default(SISWA)
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())

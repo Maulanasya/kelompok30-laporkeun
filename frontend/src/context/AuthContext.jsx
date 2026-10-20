@@ -1,34 +1,47 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { api } from "../services/api";
+import { getUser, getToken, saveSession, updateUser, clearUser } from "../utils/auth";
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(() => getUser());
+  const [loading, setLoading] = useState(() => Boolean(getToken()));
 
+  // Saat aplikasi dimuat: validasi token ke server dan segarkan data user (role bisa berubah).
+  // Kalau token ditolak (401), api.js otomatis mengeluarkan pengguna ke /login.
+  // Kalau server mati (error jaringan), sesi lokal dibiarkan.
   useEffect(() => {
-    // Cek apakah ada data user & token di localStorage saat app dimuat
-    const savedUser = localStorage.getItem("user");
-    const token = localStorage.getItem("token");
-
-    if (savedUser && token) {
-      setUser(JSON.parse(savedUser));
+    if (!getToken()) {
+      setLoading(false);
+      return;
     }
-    setLoading(false);
+    let active = true;
+    api
+      .me()
+      .then((data) => {
+        if (active && data.user) {
+          updateUser(data.user);
+          setUser(data.user);
+        }
+      })
+      .catch(() => {})
+      .finally(() => active && setLoading(false));
+    return () => {
+      active = false;
+    };
   }, []);
 
-  const login = async (email, password) => {
+  // identifier = NISN atau email. remember = simpan di localStorage (bertahan) atau sessionStorage.
+  const login = async (identifier, password, remember = false) => {
     try {
-      const data = await api.login(email, password);
+      const data = await api.login(identifier, password);
       if (data.token) {
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("user", JSON.stringify(data.user));
+        saveSession(data.user, data.token, remember);
         setUser(data.user);
         return { success: true, user: data.user };
-      } else {
-        return { success: false, message: data.error || "Login gagal" };
       }
+      return { success: false, message: data.error || "Login gagal", field: data.field };
     } catch (err) {
       return { success: false, message: "Terjadi kesalahan koneksi server" };
     }
@@ -39,17 +52,20 @@ export const AuthProvider = ({ children }) => {
       const data = await api.register(userData);
       if (data.user) {
         return { success: true, message: data.message };
-      } else {
-        return { success: false, message: data.error || "Registrasi gagal" };
       }
+      return {
+        success: false,
+        message: data.error || "Registrasi gagal",
+        field: data.field,
+        errors: data.errors,
+      };
     } catch (err) {
       return { success: false, message: "Terjadi kesalahan koneksi server" };
     }
   };
 
   const logout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    clearUser();
     setUser(null);
   };
 

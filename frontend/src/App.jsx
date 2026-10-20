@@ -20,6 +20,13 @@ import RequireRole from "./components/RequireRole";
 import BkDashboard from "./pages/bk/BkDashboard";
 import BkDetailLaporan from "./pages/bk/BkDetailLaporan";
 import BkKonsultasi from "./pages/bk/BkKonsultasi";
+import PsikologDashboard from "./pages/psikolog/PsikologDashboard";
+import PsikologDetailSesi from "./pages/psikolog/PsikologDetailSesi";
+import PsikologKonsultasi from "./pages/psikolog/PsikologKonsultasi";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminAkun from "./pages/admin/AdminAkun";
+import AdminArtikel from "./pages/admin/AdminArtikel";
+import AdminRiwayat from "./pages/admin/AdminRiwayat";
 
 export default function App() {
   return (
@@ -50,8 +57,16 @@ export default function App() {
           <Route path="/bk/konsultasi" element={<BkKonsultasi />} />
         </Route>
 
-        {/* Area psikolog: halaman belum dibuat (tujuan login peran psikolog) */}
-        <Route path="/psikolog/*" element={<NotFoundPage variant="soon" />} />
+        {/* Area psikolog (sementara tanpa RequireRole, untuk lihat tampilan) */}
+<Route path="/psikolog" element={<PsikologDashboard />} />
+<Route path="/psikolog/sesi/:id" element={<PsikologDetailSesi />} />
+<Route path="/psikolog/konsultasi" element={<PsikologKonsultasi />} />
+
+{/* Area admin (sementara tanpa RequireRole, untuk lihat tampilan) */}
+<Route path="/admin" element={<AdminDashboard />} />
+<Route path="/admin/akun" element={<AdminAkun />} />
+<Route path="/admin/artikel" element={<AdminArtikel />} />
+<Route path="/admin/riwayat" element={<AdminRiwayat />} />
 
         {/* Fallback 404 */}
         <Route path="*" element={<NotFoundPage />} />

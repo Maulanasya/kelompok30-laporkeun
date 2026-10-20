@@ -30,17 +30,36 @@ const NISN_LENGTH = 10;
 const EMAIL_REGEX = /^\S+@\S+\.\S+$/;
 
 // Tujuan setelah login berdasarkan peran akun.
-// Sesuaikan path dengan route di App.jsx (halaman psikolog belum ada).
+// Key = nilai role dari backend (enum Prisma) dalam huruf kecil.
+// Path disamakan dengan menu di Navbar.jsx.
 const ROLE_HOME = {
   siswa: "/",
   guru_bk: "/bk/laporan",
-  psikolog: "/psikolog/siswa",
+  psikolog: "/psikolog",
+  admin: "/admin",
 };
-const getRoleHome = (peran) => ROLE_HOME[peran] || "/";
+
+// Alias supaya variasi penulisan role tetap dikenali.
+const ROLE_ALIASES = {
+  bk: "guru_bk",
+  gurubk: "guru_bk",
+};
+
+// Backend mengirim `role` (SISWA, GURU_BK, PSIKOLOG, ADMIN),
+// sesi lama di localStorage memakai `peran`. Dua-duanya dibaca di sini.
+const normalizeRole = (user) => {
+  const raw = String(user?.role ?? user?.peran ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+  return ROLE_ALIASES[raw] || raw;
+};
+
+const getRoleHome = (user) => ROLE_HOME[normalizeRole(user)] || "/";
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, logout } = useAuth();
   const [form, setForm] = useState({
     identifier: "",
     password: "",
@@ -55,16 +74,23 @@ export default function LoginPage() {
   // (diletakkan setelah semua hooks agar urutan hooks tetap konsisten)
   const currentUser = getUser();
   if (currentUser) {
-    return <Navigate to={getRoleHome(currentUser.peran)} replace />;
+    return <Navigate to={getRoleHome(currentUser)} replace />;
   }
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
 
-    setForm((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
+    let next = type === "checkbox" ? checked : value;
+
+    if (name === "identifier") {
+      // Spasi tidak pernah valid di NISN maupun email, jadi dibuang
+      next = value.replace(/\s/g, "");
+
+      // Kalau isinya angka semua, dianggap NISN dan dibatasi maksimal 10 digit
+      if (/^\d+$/.test(next)) next = next.slice(0, NISN_LENGTH);
+    }
+
+    setForm((prev) => ({ ...prev, [name]: next }));
     setErrors((prev) => ({ ...prev, [name]: "" }));
     setServerError("");
   };
@@ -108,18 +134,36 @@ export default function LoginPage() {
     const identifier = form.identifier.trim();
 
     try {
-      // login() dari AuthContext -> { success, user, message }
-      const result = await login(identifier, form.password);
+      // login() dari AuthContext -> { success, user, message, field }
+      const result = await login(identifier, form.password, form.remember);
 
       if (!result?.success) {
-        throw new Error(result?.message || "NISN/email atau password salah.");
+        // Server menyebut kolom yang salah -> tampilkan tepat di bawah kolom itu
+        if (result?.field === "identifier" || result?.field === "password") {
+          setErrors((prev) => ({ ...prev, [result.field]: result.message }));
+        } else {
+          setServerError(
+            result?.message || "Gagal masuk. Coba lagi sebentar lagi."
+          );
+        }
+        return;
       }
 
-      // Simpan sesi lokal (dipakai getUser / RequireRole)
-      saveUser(result.user, form.remember);
+      // Validasi role dari server (bukan dari input user)
+      const role = normalizeRole(result.user);
+      if (!ROLE_HOME[role]) {
+        logout(); // sesi sudah tersimpan oleh login(), batalkan
+        setServerError("Peran akun tidak dikenali. Hubungi admin.");
+        return;
+      }
+
+      // Simpan sesi lokal (dipakai getUser / RequireRole).
+      // `peran` ikut disimpan agar RequireRole yang membaca `peran` tetap jalan.
+      const user = { ...result.user, peran: role };
+      saveUser(user, form.remember);
 
       // replace: tombol Back dari beranda tidak kembali ke halaman login
-      navigate(getRoleHome(result.user.peran), { replace: true });
+      navigate(getRoleHome(user), { replace: true });
     } catch (err) {
       setServerError(err.message || "Gagal masuk. Coba lagi sebentar lagi.");
     } finally {
@@ -128,8 +172,10 @@ export default function LoginPage() {
   };
 
   const inputClass = (hasError) =>
-    `w-full rounded-full bg-white border pl-12 pr-4 py-3.5 text-sm outline-none transition placeholder:text-slate-400 focus:border-[#1597A8] focus:ring-4 focus:ring-cyan-100 ${
-      hasError ? "border-red-400" : "border-slate-200"
+    `w-full rounded-full bg-white border pl-12 pr-4 py-3.5 text-sm outline-none transition placeholder:text-slate-400 focus:ring-4 ${
+      hasError
+        ? "border-red-400 focus:border-red-500 focus:ring-red-100"
+        : "border-slate-200 focus:border-[#1597A8] focus:ring-cyan-100"
     }`;
 
   return (
