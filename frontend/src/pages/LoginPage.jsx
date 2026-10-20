@@ -15,7 +15,8 @@ import {
 import AuthHeader from "../components/layout/AuthHeader";
 import BlurText from "../components/reactbits/BlurText";
 
-// Utils & Assets
+// Context, Utils & Assets
+import { useAuth } from "../context/AuthContext";
 import { getUser, saveUser } from "../utils/auth";
 import { images } from "../assets";
 
@@ -29,7 +30,7 @@ const NISN_LENGTH = 10;
 const EMAIL_REGEX = /^\S+@\S+\.\S+$/;
 
 // Tujuan setelah login berdasarkan peran akun.
-// Sesuaikan path dengan route di App.jsx (halaman BK & psikolog belum ada).
+// Sesuaikan path dengan route di App.jsx (halaman psikolog belum ada).
 const ROLE_HOME = {
   siswa: "/",
   guru_bk: "/bk/laporan",
@@ -39,6 +40,7 @@ const getRoleHome = (peran) => ROLE_HOME[peran] || "/";
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [form, setForm] = useState({
     identifier: "",
     password: "",
@@ -104,40 +106,20 @@ export default function LoginPage() {
     setServerError("");
 
     const identifier = form.identifier.trim();
-    const type = detectType(identifier);
 
     try {
-      // TODO: Hubungkan ke endpoint API autentikasi / login
-      // const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify({ identifier, type, password: form.password }),
-      // });
-      // if (!res.ok) throw new Error((await res.json()).message || "NISN/email atau password salah.");
-      // const data = await res.json(); // { user: { nama, peran, ... }, token }
-      await new Promise((r) => setTimeout(r, 800));
+      // login() dari AuthContext -> { success, user, message }
+      const result = await login(identifier, form.password);
 
-      // --- DUMMY (hapus saat backend siap) ---
-      // email berawalan "bk" -> guru_bk, "psikolog" -> psikolog, lainnya siswa
-      const dummyPeran =
-        type === "email" && identifier.toLowerCase().startsWith("bk")
-          ? "guru_bk"
-          : type === "email" && identifier.toLowerCase().startsWith("psikolog")
-          ? "psikolog"
-          : "siswa";
-      const data = {
-        user: {
-          nama: dummyPeran === "siswa" ? "Siswa" : "Petugas",
-          peran: dummyPeran,
-          ...(type === "nisn" ? { nisn: identifier } : { email: identifier }),
-        },
-      };
-      // --- END DUMMY ---
+      if (!result?.success) {
+        throw new Error(result?.message || "NISN/email atau password salah.");
+      }
 
-      saveUser(data.user, form.remember);
+      // Simpan sesi lokal (dipakai getUser / RequireRole)
+      saveUser(result.user, form.remember);
 
       // replace: tombol Back dari beranda tidak kembali ke halaman login
-      navigate(getRoleHome(data.user.peran), { replace: true });
+      navigate(getRoleHome(result.user.peran), { replace: true });
     } catch (err) {
       setServerError(err.message || "Gagal masuk. Coba lagi sebentar lagi.");
     } finally {

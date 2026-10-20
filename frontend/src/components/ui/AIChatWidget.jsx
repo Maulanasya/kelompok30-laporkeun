@@ -1,53 +1,40 @@
 import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Bot, X, Send, Sparkles } from "lucide-react";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // --- Design Tokens ---
 const COLOR_PRIMARY = "#023346";
 const COLOR_TERTIARY = "#3191A0";
 const ANIMATION_EASE = [0.22, 1, 0.36, 1];
 
-// Inisialisasi SDK Gemini dengan API key dari .env
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
+// Endpoint backend (bisa diubah lewat .env: VITE_API_URL=https://domain-kamu.com)
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const AI_ENDPOINT = `${API_BASE_URL}/api/ai/ask`;
 
-const GEMINI_MODELS = [
-  import.meta.env.VITE_GEMINI_MODEL,
-  "gemini-3.8-flash",
-  "gemini-3.6-flash",
-  "gemini-3.5-flash-lite",
-].filter((name, i, arr) => name && arr.indexOf(name) === i);
+// Kirim pesan ke backend, backend yang memanggil Gemini AI
+const handleSendAIMessage = async (userMessage) => {
+  try {
+    const response = await fetch(AI_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ message: userMessage }),
+    });
 
-const RETRYABLE_STATUS = [404, 429, 500, 503];
+    const data = await response.json();
 
-const SYSTEM_INSTRUCTION =
-  "Kamu adalah Asisten AI LaporKeun!, sebuah platform pelaporan perundungan (bullying) dan dukungan kesehatan mental siswa di sekolah. Tugasmu adalah memberikan edukasi umum seputar perundungan, cyberbullying, hak perlindungan siswa, kesehatan mental dasar, serta petunjuk penggunaan platform LaporKeun!. Jawablah dengan bahasa yang ramah, santun, empati, singkat, dan mudah dipahami siswa. Ingatkan pengguna secara halus bahwa kamu bukan pengganti konselor atau psikolog profesional jika mereka membutuhkan bantuan intensif.";
-
-// Panggil Gemini dengan cadangan model
-async function generateWithFallback(userText) {
-  let lastError = null;
-
-  for (const modelName of GEMINI_MODELS) {
-    try {
-      const model = genAI.getGenerativeModel({
-        model: modelName,
-        systemInstruction: SYSTEM_INSTRUCTION,
-      });
-      const result = await model.generateContent(userText);
-      const response = await result.response;
-      return response.text();
-    } catch (error) {
-      lastError = error;
-      console.warn(
-        `[Gemini] Model ${modelName} gagal (status ${error?.status ?? "?"}), mencoba model berikutnya...`
-      );
-      if (!RETRYABLE_STATUS.includes(error?.status)) throw error;
+    if (!response.ok) {
+      throw new Error(data.error || "Gagal mendapatkan respon dari AI");
     }
-  }
 
-  throw lastError;
-}
+    // data.reply berisi balasan teks dari Gemini AI di Backend
+    return data.reply;
+  } catch (error) {
+    console.error("AI Chatbot Error:", error);
+    throw error;
+  }
+};
 
 export default function AIChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
@@ -78,30 +65,20 @@ export default function AIChatWidget() {
     setMessages((prev) => [...prev, { sender: "user", text: userText }]);
     setIsLoading(true);
 
-    if (!genAI) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          sender: "ai",
-          text: "API Key belum terkonfigurasi. Pastikan VITE_GEMINI_API_KEY sudah diisi di file .env kamu.",
-        },
-      ]);
-      setIsLoading(false);
-      return;
-    }
-
     try {
-      // Panggil API Gemini (otomatis pindah model kalau yang utama sibuk)
-      const aiReply = await generateWithFallback(userText);
+      // Panggil backend (yang meneruskan ke Gemini AI)
+      const aiReply = await handleSendAIMessage(userText);
 
       setMessages((prev) => [...prev, { sender: "ai", text: aiReply }]);
     } catch (error) {
-      console.error("Gemini API Error:", error);
       setMessages((prev) => [
         ...prev,
         {
           sender: "ai",
-          text: "Maaf, terjadi kendala saat terhubung ke AI. Silakan coba beberapa saat lagi.",
+          text:
+            error?.message && error.message !== "Failed to fetch"
+              ? `Maaf, ${error.message}`
+              : "Maaf, terjadi kendala saat terhubung ke AI. Silakan coba beberapa saat lagi.",
         },
       ]);
     } finally {
@@ -167,7 +144,7 @@ export default function AIChatWidget() {
                     </div>
                   )}
                   <div
-                    className={`max-w-[78%] p-3 rounded-2xl text-xs sm:text-sm leading-relaxed ${
+                    className={`max-w-[78%] p-3 rounded-2xl text-xs sm:text-sm leading-relaxed whitespace-pre-wrap ${
                       msg.sender === "user"
                         ? "bg-[#023346] text-white rounded-br-none"
                         : "bg-white text-slate-800 border border-slate-200 shadow-sm rounded-bl-none"

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import {
   Eye,
@@ -19,7 +19,8 @@ import AuthHeader from "../components/layout/AuthHeader";
 import BlurText from "../components/reactbits/BlurText";
 import Select from "../components/ui/Select";
 
-// Assets
+// Context & Assets
+import { useAuth } from "../context/AuthContext";
 import { images } from "../assets";
 
 // --- Design Tokens ---
@@ -46,6 +47,8 @@ const INITIAL_FORM = {
 };
 
 // Helper Reusable Field Wrapper
+// PENTING: didefinisikan DI LUAR RegisterPage agar tidak dibuat ulang
+// setiap render (penyebab input kehilangan fokus setelah 1 huruf).
 const Field = ({ id, label, icon: Icon, error, children }) => (
   <div className="space-y-2">
     <label
@@ -70,7 +73,14 @@ const Field = ({ id, label, icon: Icon, error, children }) => (
   </div>
 );
 
+const inputClass = (hasError, extra = "") =>
+  `w-full rounded-full bg-white border pl-12 pr-4 py-3.5 text-sm outline-none transition placeholder:text-slate-400 focus:border-[#1597A8] focus:ring-4 focus:ring-cyan-100 ${
+    hasError ? "border-red-400" : "border-slate-200"
+  } ${extra}`;
+
 export default function RegisterPage() {
+  const navigate = useNavigate();
+  const { register } = useAuth();
   const [form, setForm] = useState(INITIAL_FORM);
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
@@ -131,46 +141,39 @@ export default function RegisterPage() {
     setServerError("");
 
     try {
-      // TODO: Hubungkan ke endpoint API autentikasi / register
-      await new Promise((r) => setTimeout(r, 800));
+      // register() dari AuthContext -> { success, message }
+      const result = await register({
+        nisn: form.nisn,
+        nama: form.nama.trim(),
+        email: form.email.trim(),
+        kelas: form.kelas,
+        password: form.password,
+      });
+
+      if (!result?.success) {
+        throw new Error(result?.message || "Gagal mendaftar.");
+      }
+
+      // Pendaftaran berhasil -> arahkan ke halaman login
+      navigate("/login", { replace: true });
     } catch (err) {
-      setServerError(
-        err.message || "Gagal mendaftar. Coba lagi sebentar lagi."
-      );
+      const msg = err.message || "Gagal mendaftar. Coba lagi sebentar lagi.";
+      const lower = msg.toLowerCase();
+
+      // Tampilkan peringatan tepat di bawah kolom yang bermasalah
+      if (lower.includes("email")) {
+        setErrors((prev) => ({ ...prev, email: msg }));
+        document.getElementById("email")?.focus();
+      } else if (lower.includes("nisn")) {
+        setErrors((prev) => ({ ...prev, nisn: msg }));
+        document.getElementById("nisn")?.focus();
+      } else {
+        setServerError(msg);
+      }
     } finally {
       setLoading(false);
     }
   };
-
-  const inputClass = (hasError, extra = "") =>
-    `w-full rounded-full bg-white border pl-12 pr-4 py-3.5 text-sm outline-none transition placeholder:text-slate-400 focus:border-[#1597A8] focus:ring-4 focus:ring-cyan-100 ${
-      hasError ? "border-red-400" : "border-slate-200"
-    } ${extra}`;
-
-  // Helper Reusable Field Wrapper
-  const Field = ({ id, label, icon: Icon, error, children }) => (
-    <div className="space-y-2">
-      <label
-        htmlFor={id}
-        className="block text-sm font-semibold"
-        style={{ color: COLOR_PRIMARY }}
-      >
-        {label}
-      </label>
-      <div className="relative">
-        <Icon
-          size={18}
-          className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-        />
-        {children}
-      </div>
-      {error && (
-        <p id={`${id}-error`} className="text-xs text-red-600 pl-4">
-          {error}
-        </p>
-      )}
-    </div>
-  );
 
   return (
     <div
