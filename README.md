@@ -16,7 +16,7 @@ Proyek Kelompok 30.
 
 - Frontend: React, Vite, Tailwind CSS v4
 - Font: Poppins
-- Backend: _belum ditentukan_
+- Backend: belum ditentukan
 
 ## Struktur Repo
 
