@@ -225,6 +225,8 @@ exports.getLaporanSaya = async (req, res) => {
         status: true,
         isAnonim: true,
         createdAt: true,
+        deskripsi: true,      
+        bukti: true,          
       },
     });
 
@@ -234,7 +236,6 @@ exports.getLaporanSaya = async (req, res) => {
     return fail(res, 500, "Gagal mengambil riwayat laporan.");
   }
 };
-
 // 6. Guru BK memperbarui status laporan (dicatat di riwayat)
 exports.updateStatusLaporan = async (req, res) => {
   try {

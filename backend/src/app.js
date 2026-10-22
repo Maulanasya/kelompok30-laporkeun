@@ -2,6 +2,7 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
+const path = require("path");               // ← TAMBAH
 require("dotenv").config();
 
 const aiRoutes = require("./routes/aiRoutes");
@@ -17,6 +18,9 @@ const server = http.createServer(app);
 app.use(cors({ origin: process.env.CLIENT_URL || "*" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Serve folder uploads
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));   // ← TAMBAH
 
 // Routing API
 app.use("/api/ai", aiRoutes);

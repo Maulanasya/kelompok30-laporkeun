@@ -63,13 +63,13 @@ export default function BkShell({
                   </span>
                 )}
 
-                <h1>
+                <div>
                   <BlurText
                     text={title}
                     delay={90}
                     className="flex-wrap text-3xl font-bold leading-[1.15] text-primary md:text-4xl"
                   />
-                </h1>
+                </div>
 
                 {subtitle && (
                   <motion.p

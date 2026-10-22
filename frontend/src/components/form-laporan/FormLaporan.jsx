@@ -8,7 +8,7 @@ import IdentitasRadio from "./IdentitasRadio";
 import { getUser } from "../../utils/auth";
 
 // --- Konfigurasi API ---
-const API_URL = `${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/laporan`;
+const API_URL = `${import.meta.env.VITE_API_URL || "http://localhost:5001"}/api/laporan`;
 
 // Ambil token login. SESUAIKAN key "token" jika AuthContext menyimpan dengan nama lain.
 const getToken = () =>

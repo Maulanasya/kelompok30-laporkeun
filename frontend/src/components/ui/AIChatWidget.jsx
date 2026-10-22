@@ -8,7 +8,7 @@ const COLOR_TERTIARY = "#3191A0";
 const ANIMATION_EASE = [0.22, 1, 0.36, 1];
 
 // Endpoint backend (bisa diubah lewat .env: VITE_API_URL=https://domain-kamu.com)
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
 const AI_ENDPOINT = `${API_BASE_URL}/api/ai/ask`;
 
 // Kirim pesan ke backend, backend yang memanggil Gemini AI

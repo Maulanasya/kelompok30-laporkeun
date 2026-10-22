@@ -1,6 +1,6 @@
 import { getToken, clearUser } from "../utils/auth";
 
-const API_BASE_URL = "http://localhost:5000/api";
+const API_BASE_URL = "http://localhost:5001/api";
 
 // Pembungkus fetch: otomatis kirim token, dukung JSON dan FormData,
 // dan keluarkan pengguna kalau server menolak token (401).

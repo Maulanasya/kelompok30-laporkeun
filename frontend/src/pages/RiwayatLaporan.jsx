@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { Search } from "lucide-react";
 
@@ -10,32 +10,30 @@ import StatusTimeline from "../components/StatusTimeline";
 import EvidenceItem from "../components/EvidenceItem";
 import Badge from "../components/Badge";
 import {
-  reports,
   formatDate,
   formatDateTime,
   KATEGORI_OPTIONS,
   kategoriLabel,
 } from "../data/reports";
+import { api } from "../services/api";
 
 const ANIMATION_EASE = [0.22, 1, 0.36, 1];
-const MIN_DESKRIPSI = 20; // sama dengan Form Laporan
+const MIN_DESKRIPSI = 20;
 
-// Ambil field yang bisa diedit dari sebuah laporan (sama dengan isi Form Laporan)
 const toForm = (report) => ({
-  kategori: report.category,
-  lokasi: report.lokasi,
-  waktu: report.waktu,
+  kategori: report.kategori,
+  lokasi: report.lokasiKejadian,
+  waktu: report.waktuKejadian
+    ? new Date(report.waktuKejadian).toISOString().slice(0, 16)
+    : "",
   deskripsi: report.deskripsi,
 });
 
-// Waktu lokal sekarang dalam format datetime-local (untuk atribut max)
 const nowLocalInput = () => {
   const d = new Date();
   d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
   return d.toISOString().slice(0, 16);
 };
-
-// --- Komponen kecil lokal supaya gaya seragam dengan landing page ---
 
 function Panel({ children, className = "", delay = 0 }) {
   return (
@@ -70,19 +68,58 @@ function Field({ id, label, error, children }) {
 }
 
 export default function RiwayatLaporan() {
-  const [items, setItems] = useState(reports);
-  const [selectedId, setSelectedId] = useState(reports[0].id);
+  const [items, setItems] = useState([]);
+  const [selectedId, setSelectedId] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const selected = items.find((r) => r.id === selectedId) ?? items[0];
-  const [form, setForm] = useState(() => toForm(selected));
+  const [form, setForm] = useState({
+    kategori: "",
+    lokasi: "",
+    waktu: "",
+    deskripsi: "",
+  });
+
+  useEffect(() => {
+    let active = true;
+    api
+      .getLaporanSaya()
+      .then((res) => {
+        if (active) {
+          const list = res?.data || res || [];
+          setItems(Array.isArray(list) ? list : []);
+        }
+      })
+      .catch((err) => {
+        if (active) setError(err.message || "Gagal memuat laporan");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (items.length > 0 && !selectedId) {
+      setSelectedId(items[0].id);
+    }
+  }, [items, selectedId]);
+
+  const selected = items.find((r) => r.id === selectedId) ?? items[0] ?? null;
+
+  useEffect(() => {
+    if (selected) setForm(toForm(selected));
+  }, [selectedId]); // reset form saat ganti laporan
 
   const handleSelect = (report) => {
     setSelectedId(report.id);
     setForm(toForm(report));
     setErrors({});
-    setIsEditing(false); // keluar dari mode edit saat pindah laporan
+    setIsEditing(false);
   };
 
   const handleChange = (e) => {
@@ -91,24 +128,19 @@ export default function RiwayatLaporan() {
     if (errors[id]) setErrors((prev) => ({ ...prev, [id]: undefined }));
   };
 
-  // Aturan validasi sama dengan Form Laporan
   const validate = () => {
     const found = {};
-
     if (!form.lokasi.trim()) found.lokasi = "Lokasi kejadian wajib diisi.";
-
     if (!form.waktu) {
       found.waktu = "Waktu kejadian wajib diisi.";
     } else if (new Date(form.waktu).getTime() > Date.now()) {
       found.waktu = "Waktu kejadian tidak boleh di masa depan.";
     }
-
     if (!form.deskripsi.trim()) {
       found.deskripsi = "Deskripsi kronologi wajib diisi.";
     } else if (form.deskripsi.trim().length < MIN_DESKRIPSI) {
       found.deskripsi = `Ceritakan lebih lengkap (minimal ${MIN_DESKRIPSI} karakter).`;
     }
-
     setErrors(found);
     return Object.keys(found).length === 0;
   };
@@ -117,15 +149,15 @@ export default function RiwayatLaporan() {
     e.preventDefault();
     if (!validate()) return;
 
-    // TODO: kirim perubahan ke backend (PATCH laporan milik siswa)
+    // TODO: kirim ke backend (PATCH laporan)
     setItems((prev) =>
       prev.map((r) =>
         r.id === selectedId
           ? {
               ...r,
-              category: form.kategori,
-              lokasi: form.lokasi.trim(),
-              waktu: form.waktu,
+              kategori: form.kategori,
+              lokasiKejadian: form.lokasi.trim(),
+              waktuKejadian: form.waktu,
               deskripsi: form.deskripsi.trim(),
             }
           : r
@@ -135,10 +167,34 @@ export default function RiwayatLaporan() {
   };
 
   const handleCancel = () => {
-    setForm(toForm(selected));
+    if (selected) setForm(toForm(selected));
     setErrors({});
     setIsEditing(false);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F4F9F9]">
+        <p className="text-slate-500">Memuat laporan...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F4F9F9]">
+        <p className="text-red-500">{error}</p>
+      </div>
+    );
+  }
+
+  if (!selected) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F4F9F9]">
+        <p className="text-slate-500">Belum ada laporan.</p>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -152,7 +208,6 @@ export default function RiwayatLaporan() {
       <Navbar />
 
       <main className="relative flex-1 overflow-hidden pt-28 pb-16 md:pt-32 md:pb-24">
-        {/* Background Decorative Blurs */}
         <div
           aria-hidden="true"
           className="pointer-events-none absolute -top-40 -left-32 h-130 w-130 rounded-full bg-tertiary/15 blur-3xl"
@@ -163,7 +218,6 @@ export default function RiwayatLaporan() {
         />
 
         <div className="relative mx-auto max-w-7xl px-6">
-          {/* Judul halaman */}
           <div className="mb-10 max-w-2xl space-y-3">
             <BlurText
               text="Pantau laporanmu"
@@ -176,7 +230,7 @@ export default function RiwayatLaporan() {
           </div>
 
           <section className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[270px_minmax(0,1fr)_300px]">
-            {/* KIRI: daftar laporan */}
+            {/* KIRI */}
             <Panel className="p-5">
               <h2 className="mb-4 text-lg font-bold text-primary">
                 Riwayat Laporan
@@ -211,9 +265,9 @@ export default function RiwayatLaporan() {
                     className="cursor-pointer rounded-xl outline-none focus-visible:ring-4 focus-visible:ring-cyan-100"
                   >
                     <ReportCard
-                      category={kategoriLabel(report.category)}
-                      ticket={report.ticket}
-                      date={formatDate(report.tanggal)}
+                      category={kategoriLabel(report.kategori)}
+                      ticket={report.kodeTiket}
+                      date={formatDate(report.waktuKejadian)}
                       status={report.status}
                       active={report.id === selectedId}
                     />
@@ -232,16 +286,16 @@ export default function RiwayatLaporan() {
                 <div className="rounded-2xl border border-slate-200 bg-[#F4F9F9] px-4 py-3">
                   <div className="flex items-center justify-between gap-3">
                     <h3 className="text-sm font-bold text-primary">
-                      {selected.ticket}
+                      {selected.kodeTiket}
                     </h3>
                     <Badge status={selected.status} />
                   </div>
                   <p className="mt-1 text-xs text-slate-500">
-                    {kategoriLabel(selected.category)} · Dilaporkan{" "}
-                    {formatDate(selected.tanggal, true)}
+                    {kategoriLabel(selected.kategori)} · Dilaporkan{" "}
+                    {formatDate(selected.createdAt, true)}
                   </p>
                   <p className="mt-0.5 text-xs text-slate-500">
-                    Kejadian: {formatDateTime(selected.waktu)}
+                    Kejadian: {formatDateTime(selected.waktuKejadian)}
                   </p>
                 </div>
               </Panel>
@@ -264,12 +318,11 @@ export default function RiwayatLaporan() {
                 </div>
 
                 <form className="space-y-5" onSubmit={handleSubmit} noValidate>
-                  {/* Tanggal laporan dibuat: otomatis, tidak bisa diubah */}
                   <Field id="tanggal" label="Tanggal Laporan">
                     <input
                       id="tanggal"
                       type="date"
-                      value={selected.tanggal}
+                      value={selected.createdAt?.slice(0, 10) || ""}
                       readOnly
                       className={`${fieldBase} rounded-full py-3`}
                     />
@@ -337,9 +390,13 @@ export default function RiwayatLaporan() {
                       Bukti
                     </h3>
                     <div className="space-y-2.5">
-                      {selected.evidence.length > 0 ? (
-                        selected.evidence.map((item) => (
-                          <EvidenceItem key={item.id} {...item} />
+                      {selected.bukti && selected.bukti.length > 0 ? (
+                        selected.bukti.map((item) => (
+                         <EvidenceItem
+  key={item.id}
+  name={item.filePath?.split("/").pop()}
+  url={`http://localhost:5001/${item.filePath}`}
+/>
                         ))
                       ) : (
                         <p className="text-xs text-slate-500">
@@ -349,7 +406,6 @@ export default function RiwayatLaporan() {
                     </div>
                   </div>
 
-                  {/* Identitas dipilih saat membuat laporan: hanya ditampilkan */}
                   <Field id="identitas" label="Identitas Pelapor">
                     <input
                       id="identitas"
@@ -385,13 +441,13 @@ export default function RiwayatLaporan() {
               </Panel>
             </div>
 
-            {/* KANAN: status & konselor (menempel saat scroll di layar besar) */}
+            {/* KANAN */}
             <Panel delay={0.24} className="lg:sticky lg:top-28">
               <h2 className="mb-5 text-lg font-bold text-primary">
                 Status Laporan
               </h2>
 
-              <StatusTimeline />
+              <StatusTimeline status={selected.status} />
 
               <div className="mt-6 rounded-2xl bg-tertiary-light p-4">
                 <p className="mb-3 text-[11px] font-bold tracking-wide text-primary">
