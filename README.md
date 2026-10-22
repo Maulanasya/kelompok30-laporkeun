@@ -31,11 +31,26 @@ laporkeunkel30/
 
 ```bash
 git clone https://github.com/USERNAME/kelompok30-laporkeun.git
+git fetch origin
+git checkout nama-branch
+
 cd kelompok30-laporkeun/frontend
 copy .env.example .env
 npm install
 npm run dev
 ```
+
+## Menjalankan Backend
+
+```bash
+cd kelompok30-laporkeun/backend
+npm install
+npx prisma generate
+copy .env.example .env
+npm run dev
+npx prisma studio
+```
+
 
 Buka `http://localhost:5173`. Isi nilai variabel di `.env` sesuai kebutuhan.
 
