@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, Navigate, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
 import {
   Eye,
@@ -17,7 +17,8 @@ import AuthHeader from "../components/layout/AuthHeader";
 import BlurText from "../components/reactbits/BlurText";
 import StepIndicator from "../components/ui/StepIndicator";
 
-// Assets
+// Services & Assets
+import { api } from "../services/api";
 import { images } from "../assets";
 
 // --- Design Tokens ---
@@ -48,8 +49,10 @@ function PasswordField({ id, label, value, onChange, placeholder, error, autoCom
           placeholder={placeholder}
           aria-invalid={!!error}
           aria-describedby={error ? `${id}-error` : undefined}
-          className={`w-full rounded-full bg-white border pl-12 pr-12 py-3.5 text-sm outline-none transition placeholder:text-slate-400 focus:border-tertiary focus:ring-4 focus:ring-cyan-100 ${
-            error ? "border-red-400" : "border-slate-200"
+          className={`w-full rounded-full bg-white border pl-12 pr-12 py-3.5 text-sm outline-none transition placeholder:text-slate-400 focus:ring-4 ${
+            error
+              ? "border-red-400 focus:border-red-500 focus:ring-red-100"
+              : "border-slate-200 focus:border-tertiary focus:ring-cyan-100"
           }`}
         />
         <button
@@ -80,13 +83,17 @@ function Rule({ ok, children }) {
 }
 
 export default function NewPasswordPage() {
-  const email = useLocation().state?.email;
+  const { email, resetToken } = useLocation().state ?? {};
 
   const [form, setForm] = useState({ password: "", confirm: "" });
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState("");
+  const [sessionEnded, setSessionEnded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+
+  // Halaman ini hanya bisa dibuka setelah kode verifikasi benar (resetToken dari langkah 2)
+  if (!resetToken && !done) return <Navigate to="/lupa-password" replace />;
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -117,17 +124,22 @@ export default function NewPasswordPage() {
     setLoading(true);
     setServerError("");
     try {
-      // TODO: kirim sandi baru ke backend beserta token reset dari langkah verifikasi
-      // const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/reset-password`, {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify({ email, resetToken, password: form.password }),
-      // });
-      // if (!res.ok) throw new Error((await res.json()).message || "Gagal mengubah kata sandi.");
-      await new Promise((r) => setTimeout(r, 800));
+      // Server memeriksa resetToken: tanpa kode yang benar, sandi tidak bisa diganti
+      const result = await api.resetPassword(resetToken, form.password);
+
+      if (result.error) {
+        if (result.field === "password") {
+          setErrors((prev) => ({ ...prev, password: result.error }));
+        } else {
+          setServerError(result.error);
+          if (result.field === "token") setSessionEnded(true);
+        }
+        return;
+      }
+
       setDone(true);
-    } catch (err) {
-      setServerError(err.message || "Gagal mengubah kata sandi. Coba lagi sebentar lagi.");
+    } catch {
+      setServerError("Terjadi kesalahan koneksi server.");
     } finally {
       setLoading(false);
     }
@@ -206,6 +218,7 @@ export default function NewPasswordPage() {
                   </p>
                   <Link
                     to="/login"
+                    replace
                     className="w-full inline-flex items-center justify-center gap-2 rounded-full px-7 py-3.5 text-sm font-semibold text-white shadow-lg shadow-cyan-900/15 transition hover:-translate-y-0.5 hover:brightness-95"
                     style={{ background: COLOR_PRIMARY }}
                   >
@@ -247,7 +260,17 @@ export default function NewPasswordPage() {
                         className="flex items-start gap-2 rounded-2xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700"
                       >
                         <AlertCircle size={16} className="mt-0.5 shrink-0" />
-                        {serverError}
+                        <span>
+                          {serverError}
+                          {sessionEnded && (
+                            <>
+                              {" "}
+                              <Link to="/lupa-password" replace className="font-semibold underline">
+                                Mulai ulang
+                              </Link>
+                            </>
+                          )}
+                        </span>
                       </div>
                     )}
 
@@ -288,7 +311,7 @@ export default function NewPasswordPage() {
                         </>
                       ) : (
                         <>
-                          Lanjut <ArrowRight size={17} />
+                          Simpan kata sandi <ArrowRight size={17} />
                         </>
                       )}
                     </button>

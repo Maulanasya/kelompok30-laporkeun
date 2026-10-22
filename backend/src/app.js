@@ -7,8 +7,9 @@ require("dotenv").config();
 const aiRoutes = require("./routes/aiRoutes");
 const authRoutes = require("./routes/authRoutes");
 const laporanRoutes = require("./routes/laporanRoutes");
-const chatRoutes = require("./routes/chatRoutes"); // <-- Import ini
+const chatRoutes = require("./routes/chatRoutes"); 
 const initChatSocket = require("./sockets/chatSocket");
+const profileRoutes = require("./routes/profileRoutes");
 
 const app = express();
 const server = http.createServer(app);
@@ -21,7 +22,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/api/ai", aiRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/laporan", laporanRoutes);
-app.use("/api/chat", chatRoutes); // <-- Daftarkan di sini
+app.use("/api/chat", chatRoutes);
+app.use("/api/profile", profileRoutes); 
 
 const io = new Server(server, {
   cors: {

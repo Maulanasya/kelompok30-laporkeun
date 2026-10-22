@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
-import { Lock } from "lucide-react";
+import { Lock, ArrowLeft } from "lucide-react";
 
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
@@ -15,12 +15,17 @@ import {
   messages as initialMessages,
 } from "../data/conversations";
 
-// --- Design Tokens (sama dengan LandingPage) ---
 const COLOR_TERTIARY = "#3191A0";
 const ANIMATION_EASE = [0.22, 1, 0.36, 1];
-
-// Di bawah breakpoint `lg` daftar chat dan area chat bertumpuk (1 kolom)
 const STACKED_LAYOUT_QUERY = "(max-width: 1023px)";
+const PAGE_SCROLL_OFFSET = 96;
+
+// Smooth scroll ke elemen target untuk tampilan mobile/tablet
+const scrollPageTo = (el) => {
+  if (!el) return;
+  const top = el.getBoundingClientRect().top + window.scrollY - PAGE_SCROLL_OFFSET;
+  window.scrollTo({ top: Math.max(top, 0), behavior: "smooth" });
+};
 
 function Panel({ children, className = "", delay = 0, innerRef }) {
   return (
@@ -40,34 +45,47 @@ export default function ChatPsikolog() {
   const [activeId, setActiveId] = useState(initialConversations[0].id);
   const [messages, setMessages] = useState(initialMessages);
 
-  const chatPanelRef = useRef(null); // panel area chat (target scroll halaman)
-  const messagesRef = useRef(null); // wadah pesan yang bisa di-scroll
+  const listPanelRef = useRef(null);
+  const chatPanelRef = useRef(null);
+  const messagesRef = useRef(null);
+  const shouldScrollToChat = useRef(false);
 
   const activeConversation = initialConversations.find(
     (c) => c.id === activeId
   );
 
-  // Gulir ke pesan terbaru DI DALAM wadah pesan saja.
-  // Sebelumnya memakai scrollIntoView pada elemen di akhir list, yang ikut
-  // menggulir seluruh halaman (bikin posisi halaman loncat ke tengah di mobile).
+  // Scroll otomatis ke dasar wadah pesan saat ada pesan baru
   useEffect(() => {
     const el = messagesRef.current;
     if (!el) return;
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-  }, [messages.length, activeId]);
+  }, [messages.length]);
+
+  // Handler perpindahan percakapan dan penyesuaian posisi layar di mobile
+  useEffect(() => {
+    const el = messagesRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+
+    if (shouldScrollToChat.current) {
+      shouldScrollToChat.current = false;
+      scrollPageTo(chatPanelRef.current);
+    }
+  }, [activeId]);
 
   const handleSelect = (id) => {
-    setActiveId(id);
+    const stacked = window.matchMedia(STACKED_LAYOUT_QUERY).matches;
 
-    // Di mobile/tablet, langsung bawa halaman ke panel chat
-    if (window.matchMedia(STACKED_LAYOUT_QUERY).matches) {
-      requestAnimationFrame(() => {
-        chatPanelRef.current?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
-      });
+    if (id === activeId) {
+      if (stacked) scrollPageTo(chatPanelRef.current);
+      return;
     }
+
+    shouldScrollToChat.current = stacked;
+    setActiveId(id);
+  };
+
+  const handleBackToList = () => {
+    scrollPageTo(listPanelRef.current);
   };
 
   const handleSend = (text) => {
@@ -76,7 +94,7 @@ export default function ChatPsikolog() {
 
   return (
     <div
-      className="min-h-screen flex flex-col bg-[#F4F9F9] text-slate-800 selection:bg-cyan-100 overflow-x-hidden"
+      className="flex min-h-screen flex-col overflow-x-hidden bg-[#F4F9F9] text-slate-800 selection:bg-cyan-100"
       style={{ fontFamily: "'Plus Jakarta Sans', 'Poppins', sans-serif" }}
     >
       <style>{`
@@ -85,11 +103,11 @@ export default function ChatPsikolog() {
 
       <Navbar />
 
-      <main className="relative flex-1 overflow-hidden pt-28 pb-16 md:pt-32 md:pb-24">
-        {/* Background Decorative Blurs */}
+      <main className="relative flex-1 overflow-hidden pb-16 pt-28 md:pb-24 md:pt-32">
+        {/* Decorative Blurs Background */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -top-40 -left-32 h-130 w-130 rounded-full bg-tertiary/15 blur-3xl"
+          className="pointer-events-none absolute -left-32 -top-40 h-130 w-130 rounded-full bg-tertiary/15 blur-3xl"
         />
         <div
           aria-hidden="true"
@@ -97,7 +115,7 @@ export default function ChatPsikolog() {
         />
 
         <div className="relative mx-auto max-w-7xl px-6">
-          {/* Judul halaman */}
+          {/* Header Halaman */}
           <div className="mb-10 max-w-2xl space-y-4">
             <span className="inline-flex items-center gap-2 rounded-full border border-cyan-100 bg-white/80 px-4 py-1.5 text-xs font-medium">
               <Lock size={13} color={COLOR_TERTIARY} />
@@ -115,10 +133,13 @@ export default function ChatPsikolog() {
             </p>
           </div>
 
-          {/* Layout 2 kolom */}
+          {/* Grid Layout 2 Kolom */}
           <section className="grid grid-cols-1 gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
-            {/* KIRI: List Percakapan */}
-            <Panel className="p-5 lg:h-160 lg:overflow-y-auto">
+            {/* Panel Daftar Percakapan */}
+            <Panel
+              innerRef={listPanelRef}
+              className="scroll-mt-24 p-5 lg:h-160 lg:overflow-y-auto"
+            >
               <ChatList
                 conversations={initialConversations}
                 activeId={activeId}
@@ -126,17 +147,27 @@ export default function ChatPsikolog() {
               />
             </Panel>
 
-            {/* KANAN: Area Chat */}
+            {/* Panel Ruang Chat */}
             <Panel
               innerRef={chatPanelRef}
               delay={0.1}
               className="flex h-140 scroll-mt-24 flex-col overflow-hidden lg:h-160"
             >
+              {/* Tombol Kembali ke Daftar Percakapan (Khusus Mobile/Tablet) */}
+              <button
+                type="button"
+                onClick={handleBackToList}
+                className="flex shrink-0 cursor-pointer items-center gap-1.5 border-b border-slate-200 bg-white px-5 py-3 text-xs font-semibold text-primary transition hover:bg-slate-50 lg:hidden"
+              >
+                <ArrowLeft size={14} /> Daftar percakapan
+              </button>
+
               <ChatHeader
                 name={activeConversation.name}
                 ticket={activeConversation.ticket}
               />
 
+              {/* Wadah Pesan Chat */}
               <div
                 ref={messagesRef}
                 className="flex-1 space-y-3 overflow-y-auto bg-[#F4F9F9] px-5 py-5"

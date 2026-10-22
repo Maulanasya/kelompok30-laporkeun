@@ -42,7 +42,8 @@ model User {
   id        String   @id @default(uuid())
   nama      String
   email     String   @unique
-  nisn      String?   @unique
+  nisn      String?  @unique
+  kelas     String?  
   password  String   // simpan hash bcrypt
   role      Role     @default(SISWA)
   isActive  Boolean  @default(true)
@@ -150,11 +151,15 @@ model KontenEdukasi {
 }
 
 model PasswordReset {
-  id        String   @id @default(uuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  kodeHash  String
-  expiresAt DateTime
-  usedAt    DateTime?
-  createdAt DateTime @default(now())
+  id         String    @id @default(uuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kodeHash   String
+  attempts   Int       @default(0)
+  verifiedAt DateTime?
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId, createdAt])
 }

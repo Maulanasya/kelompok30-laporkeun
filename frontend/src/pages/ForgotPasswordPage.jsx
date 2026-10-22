@@ -8,7 +8,8 @@ import AuthHeader from "../components/layout/AuthHeader";
 import BlurText from "../components/reactbits/BlurText";
 import StepIndicator from "../components/ui/StepIndicator";
 
-// Assets
+// Services & Assets
+import { api } from "../services/api";
 import { images } from "../assets";
 
 // --- Design Tokens (sama dengan LandingPage, LoginPage & RegisterPage) ---
@@ -24,7 +25,7 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
-    setEmail(e.target.value);
+    setEmail(e.target.value.replace(/\s/g, ""));
     setError("");
     setServerError("");
   };
@@ -47,20 +48,32 @@ export default function ForgotPasswordPage() {
 
     setLoading(true);
     setServerError("");
+    const cleanEmail = email.trim().toLowerCase();
+
     try {
-      // TODO: sambungkan ke endpoint backend (kirim kode verifikasi ke email)
-      // const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/forgot-password`, {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify({ email: email.trim() }),
-      // });
-      // if (!res.ok) throw new Error((await res.json()).message || "Gagal mengirim kode.");
-      await new Promise((r) => setTimeout(r, 800));
+      // Server membuat kode 4 digit lalu mengirimkannya ke email
+      const result = await api.forgotPassword(cleanEmail);
+
+      // Kode baru saja dikirim (masih dalam jeda 60 detik): lanjut saja ke halaman verifikasi
+      if (result.retryAfter) {
+        navigate("/verifikasi-kode", {
+          state: { email: cleanEmail, resendIn: result.retryAfter },
+        });
+        return;
+      }
+
+      if (result.error) {
+        if (result.field === "email") setError(result.error);
+        else setServerError(result.error);
+        return;
+      }
 
       // Bawa email ke halaman verifikasi
-      navigate("/verifikasi-kode", { state: { email: email.trim() } });
-    } catch (err) {
-      setServerError(err.message || "Gagal mengirim kode. Coba lagi sebentar lagi.");
+      navigate("/verifikasi-kode", {
+        state: { email: cleanEmail, resendIn: result.resendIn },
+      });
+    } catch {
+      setServerError("Terjadi kesalahan koneksi server.");
     } finally {
       setLoading(false);
     }
@@ -81,7 +94,7 @@ export default function ForgotPasswordPage() {
         {/* Background Decorative Blurs */}
         <div
           aria-hidden="true"
-          className="absolute -top-40 -left-32 w-130 h-130 rounded-full bg-[#1597A8]/15 blur-3xl pointer-events-none"
+          className="absolute -top-40 -left-32 w-130 h-130 rounded-full bg-tertiary/15 blur-3xl pointer-events-none"
         />
         <div
           aria-hidden="true"
@@ -111,7 +124,7 @@ export default function ForgotPasswordPage() {
               <BlurText
                 text="Lupa kata sandi Anda?"
                 delay={90}
-                className="text-3xl md:text-4xl font-bold leading-[1.15] flex-wrap text-[#0F4C5C]"
+                className="text-3xl md:text-4xl font-bold leading-[1.15] flex-wrap text-primary"
               />
               <p className="text-sm text-slate-600 leading-relaxed">
                 Masukkan email yang kamu pakai saat mendaftar. Kami akan mengirimkan kode
@@ -146,8 +159,10 @@ export default function ForgotPasswordPage() {
                     placeholder="Masukkan email"
                     aria-invalid={!!error}
                     aria-describedby={error ? "email-error" : undefined}
-                    className={`w-full rounded-full bg-white border pl-12 pr-4 py-3.5 text-sm outline-none transition placeholder:text-slate-400 focus:border-[#1597A8] focus:ring-4 focus:ring-cyan-100 ${
-                      error ? "border-red-400" : "border-slate-200"
+                    className={`w-full rounded-full bg-white border pl-12 pr-4 py-3.5 text-sm outline-none transition placeholder:text-slate-400 focus:ring-4 ${
+                      error
+                        ? "border-red-400 focus:border-red-500 focus:ring-red-100"
+                        : "border-slate-200 focus:border-tertiary focus:ring-cyan-100"
                     }`}
                   />
                 </div>

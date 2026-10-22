@@ -14,25 +14,20 @@ import {
   Loader2,
 } from "lucide-react";
 
-// Components
 import AuthHeader from "../components/layout/AuthHeader";
 import BlurText from "../components/reactbits/BlurText";
 import Select from "../components/ui/Select";
 
-// Context & Assets
 import { useAuth } from "../context/AuthContext";
 import { images } from "../assets";
 
-// --- Design Tokens ---
 const COLOR_PRIMARY = "#0F4C5C";
 const COLOR_TERTIARY = "#1597A8";
 const ANIMATION_EASE = [0.22, 1, 0.36, 1];
 
-// --- Form Constants ---
 const NISN_LENGTH = 10;
 const MIN_PASSWORD = 8;
 
-// Urutan kolom di form (dipakai untuk memilih kolom yang difokuskan saat ada error dari server)
 const FIELD_ORDER = ["nisn", "nama", "email", "kelas", "password"];
 
 const KELAS_GROUPS = [
@@ -49,9 +44,7 @@ const INITIAL_FORM = {
   password: "",
 };
 
-// Helper Reusable Field Wrapper
-// PENTING: didefinisikan DI LUAR RegisterPage agar tidak dibuat ulang
-// setiap render (penyebab input kehilangan fokus setelah 1 huruf).
+// Helper Field Wrapper (Didefinisikan di luar komponen utama)
 const Field = ({ id, label, icon: Icon, error, children }) => (
   <div className="space-y-2">
     <label
@@ -64,12 +57,12 @@ const Field = ({ id, label, icon: Icon, error, children }) => (
     <div className="relative">
       <Icon
         size={18}
-        className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+        className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
       />
       {children}
     </div>
     {error && (
-      <p id={`${id}-error`} className="text-xs text-red-600 pl-4">
+      <p id={`${id}-error`} className="pl-4 text-xs text-red-600">
         {error}
       </p>
     )}
@@ -92,7 +85,6 @@ export default function RegisterPage() {
   const [serverError, setServerError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Sanitasi & pembatasan input NISN (hanya angka)
   const handleChange = (e) => {
     const { name, value } = e.target;
     const next =
@@ -103,7 +95,6 @@ export default function RegisterPage() {
     setServerError("");
   };
 
-  // Validasi form lokal
   const validate = () => {
     const e = {};
 
@@ -137,7 +128,6 @@ export default function RegisterPage() {
     return Object.keys(e).length === 0;
   };
 
-  // Submit Handler
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) return;
@@ -146,7 +136,6 @@ export default function RegisterPage() {
     setServerError("");
 
     try {
-      // register() dari AuthContext -> { success, message, field, errors }
       const result = await register({
         nisn: form.nisn,
         nama: form.nama.trim(),
@@ -156,8 +145,6 @@ export default function RegisterPage() {
       });
 
       if (!result?.success) {
-        // Server mengirim error per kolom -> tampilkan masing-masing di bawah kolomnya.
-        // Email dan NISN dipisah, jadi keduanya bisa muncul bersamaan kalau dua-duanya sudah dipakai.
         const fromServer =
           result?.errors ??
           (result?.field ? { [result.field]: result.message } : {});
@@ -172,7 +159,6 @@ export default function RegisterPage() {
           setErrors((prev) => ({ ...prev, ...fieldErrors }));
           document.getElementById(firstField)?.focus();
         } else {
-          // Error umum (koneksi, server, dll) -> banner di atas form
           setServerError(
             result?.message || "Gagal mendaftar. Coba lagi sebentar lagi."
           );
@@ -180,7 +166,6 @@ export default function RegisterPage() {
         return;
       }
 
-      // Pendaftaran berhasil -> arahkan ke halaman login
       navigate("/login", { replace: true });
     } catch (err) {
       setServerError(err.message || "Gagal mendaftar. Coba lagi sebentar lagi.");
@@ -191,33 +176,33 @@ export default function RegisterPage() {
 
   return (
     <div
-      className="min-h-screen flex flex-col bg-[#F4F9F9] text-slate-800 selection:bg-cyan-100 overflow-x-hidden"
+      className="flex min-h-screen flex-col overflow-x-hidden bg-[#F4F9F9] text-slate-800 selection:bg-cyan-100"
       style={{ fontFamily: "'Plus Jakarta Sans', 'Poppins', sans-serif" }}
     >
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
       `}</style>
 
-      <main className="relative flex-1 flex items-center py-24 overflow-hidden">
+      <main className="relative flex flex-1 items-center overflow-hidden py-24">
         <AuthHeader />
 
         {/* Decorative Background Elements */}
         <div
           aria-hidden="true"
-          className="absolute -top-40 -left-32 w-130 h-130 rounded-full bg-tertiary/15 blur-3xl pointer-events-none"
+          className="pointer-events-none absolute -left-32 -top-40 h-130 w-130 rounded-full bg-tertiary/15 blur-3xl"
         />
         <div
           aria-hidden="true"
-          className="absolute -bottom-40 right-0 w-115 h-115 rounded-full bg-accent/20 blur-3xl pointer-events-none"
+          className="pointer-events-none absolute -bottom-40 right-0 h-115 w-115 rounded-full bg-accent/20 blur-3xl"
         />
 
-        <div className="relative w-full max-w-7xl mx-auto px-6 grid lg:grid-cols-[1.1fr_0.9fr] gap-14 items-center">
+        <div className="relative mx-auto grid w-full max-w-7xl items-center gap-14 px-6 lg:grid-cols-[1.1fr_0.9fr]">
           {/* Hero Illustration */}
           <div className="hidden lg:block">
             <motion.img
               src={images?.register}
               alt="Ilustrasi membuat akun LaporKeun!"
-              className="w-full max-w-xl mx-auto object-contain"
+              className="mx-auto w-full max-w-xl object-contain"
               animate={{ y: [0, -10, 0] }}
               transition={{
                 duration: 5,
@@ -232,15 +217,15 @@ export default function RegisterPage() {
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: ANIMATION_EASE }}
-            className="w-full max-w-md mx-auto lg:mx-0 lg:ml-auto rounded-3xl bg-white border border-slate-200 p-8 md:p-10 shadow-xl shadow-cyan-900/10"
+            className="mx-auto w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 shadow-xl shadow-cyan-900/10 lg:mx-0 lg:ml-auto md:p-10"
           >
-            <div className="space-y-2 mb-8">
+            <div className="mb-8 space-y-2">
               <BlurText
                 text="Buat akun baru"
                 delay={90}
-                className="text-3xl md:text-4xl font-bold leading-[1.15] flex-wrap text-primary"
+                className="flex-wrap text-3xl font-bold leading-[1.15] text-primary md:text-4xl"
               />
-              <p className="text-sm text-slate-600 leading-relaxed">
+              <p className="text-sm leading-relaxed text-slate-600">
                 Daftar untuk menyimpan riwayat laporan dan menjadwalkan
                 konseling.
               </p>
@@ -250,7 +235,7 @@ export default function RegisterPage() {
               {serverError && (
                 <div
                   role="alert"
-                  className="flex items-start gap-2 rounded-2xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700"
+                  className="flex items-start gap-2 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
                 >
                   <AlertCircle size={16} className="mt-0.5 shrink-0" />
                   {serverError}
@@ -327,7 +312,7 @@ export default function RegisterPage() {
                   describedBy={errors.kelas ? "kelas-error" : undefined}
                 />
                 {errors.kelas && (
-                  <p id="kelas-error" className="text-xs text-red-600 pl-4">
+                  <p id="kelas-error" className="pl-4 text-xs text-red-600">
                     {errors.kelas}
                   </p>
                 )}
@@ -362,7 +347,7 @@ export default function RegisterPage() {
                       ? "Sembunyikan password"
                       : "Tampilkan password"
                   }
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-tertiary transition cursor-pointer"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 cursor-pointer text-slate-400 transition hover:text-tertiary"
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
@@ -372,7 +357,7 @@ export default function RegisterPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-full px-7 py-3.5 text-sm font-semibold text-white shadow-lg shadow-cyan-900/15 transition hover:-translate-y-0.5 hover:brightness-95 disabled:opacity-70 disabled:hover:translate-y-0 cursor-pointer disabled:cursor-not-allowed"
+                className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-full px-7 py-3.5 text-sm font-semibold text-white shadow-lg shadow-cyan-900/15 transition hover:-translate-y-0.5 hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
                 style={{ background: COLOR_PRIMARY }}
               >
                 {loading ? (

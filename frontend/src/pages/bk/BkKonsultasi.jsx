@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { FileText } from "lucide-react";
+import { FileText, ArrowLeft } from "lucide-react";
 
 import BkShell, { Panel } from "../../components/layout/BkShell";
 import ChatList from "../../components/ChatList";
@@ -9,40 +9,67 @@ import ChatBubble from "../../components/ChatBubble";
 import ChatInput from "../../components/ChatInput";
 import { bkConversations, bkMessages } from "../../data/bkReports";
 
-// Media query penanda skema layout bertumpuk untuk tampilan mobile & tablet (< 1024px)
 const STACKED_LAYOUT_QUERY = "(max-width: 1023px)";
+const PAGE_SCROLL_OFFSET = 96;
+
+// Smooth scroll ke elemen target untuk tampilan mobile/tablet
+const scrollPageTo = (el) => {
+  if (!el) return;
+  const top = el.getBoundingClientRect().top + window.scrollY - PAGE_SCROLL_OFFSET;
+  window.scrollTo({ top: Math.max(top, 0), behavior: "smooth" });
+};
 
 export default function BkKonsultasi() {
   const [params] = useSearchParams();
   const fromReport = bkConversations.find((c) => c.ticket === params.get("kode"));
 
-  // Menentukan percakapan aktif berdasarkan query parameter URL atau default ke pesan pertama
   const [activeId, setActiveId] = useState((fromReport ?? bkConversations[0]).id);
   const [threads, setThreads] = useState(bkMessages);
 
+  const listPanelRef = useRef(null);
   const chatPanelRef = useRef(null);
   const messagesRef = useRef(null);
+  const shouldScrollToChat = useRef(false);
+  const lastActiveId = useRef(activeId);
 
   const active = bkConversations.find((c) => c.id === activeId);
   const messages = threads[activeId] ?? [];
 
-  // Menggulirkan area percakapan secara otomatis ke pesan terbaru saat terdapat perubahan pesan
+  // Scroll otomatis ke bawah saat ada pesan baru dalam percakapan aktif
   useEffect(() => {
+    if (lastActiveId.current !== activeId) {
+      lastActiveId.current = activeId;
+      return;
+    }
     const el = messagesRef.current;
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [messages.length, activeId]);
 
-  // Mengubah percakapan aktif dan menggulirkan tampilan ke panel chat pada perangkat seluler
-  const handleSelect = (id) => {
-    setActiveId(id);
-    if (window.matchMedia(STACKED_LAYOUT_QUERY).matches) {
-      requestAnimationFrame(() =>
-        chatPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
-      );
+  // Handler pergantian percakapan & penyesuaian scroll di mobile
+  useEffect(() => {
+    const el = messagesRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+
+    if (shouldScrollToChat.current) {
+      shouldScrollToChat.current = false;
+      scrollPageTo(chatPanelRef.current);
     }
+  }, [activeId]);
+
+  const handleSelect = (id) => {
+    const stacked = window.matchMedia(STACKED_LAYOUT_QUERY).matches;
+
+    if (id === activeId) {
+      if (stacked) scrollPageTo(chatPanelRef.current);
+      return;
+    }
+
+    shouldScrollToChat.current = stacked;
+    setActiveId(id);
   };
 
-  // Menambahkan pesan baru dari Guru BK ke dalam percakapan aktif
+  const handleBackToList = () => scrollPageTo(listPanelRef.current);
+
   const handleSend = (text) =>
     setThreads((prev) => ({
       ...prev,
@@ -55,8 +82,11 @@ export default function BkKonsultasi() {
       subtitle="Percakapan hanya terlihat olehmu dan siswa terkait. Pelapor anonim tetap tidak diketahui identitasnya."
     >
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
-        {/* Panel daftar percakapan aktif */}
-        <Panel className="p-5 lg:h-160 lg:overflow-y-auto">
+        {/* Panel Daftar Percakapan */}
+        <Panel
+          innerRef={listPanelRef}
+          className="scroll-mt-24 p-5 lg:h-160 lg:overflow-y-auto"
+        >
           <ChatList
             conversations={bkConversations}
             activeId={activeId}
@@ -64,15 +94,24 @@ export default function BkKonsultasi() {
           />
         </Panel>
 
-        {/* Panel ruang chat aktif */}
+        {/* Panel Ruang Chat */}
         <Panel
           innerRef={chatPanelRef}
           delay={0.1}
           className="flex h-140 scroll-mt-24 flex-col overflow-hidden lg:h-160"
         >
+          {/* Tombol kembali ke daftar (khusus mobile/tablet) */}
+          <button
+            type="button"
+            onClick={handleBackToList}
+            className="flex shrink-0 cursor-pointer items-center gap-1.5 border-b border-slate-200 bg-white px-5 py-3 text-xs font-semibold text-primary transition hover:bg-slate-50 lg:hidden"
+          >
+            <ArrowLeft size={14} /> Daftar percakapan
+          </button>
+
           <ChatHeader name={active.name} ticket={active.ticket} />
 
-          {/* Banner tautan langsung ke rincian laporan */}
+          {/* Banner tautan ke detail laporan */}
           <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-white px-5 py-2 text-xs text-slate-500">
             <span>Perlu pendampingan lebih lanjut?</span>
             <Link
@@ -83,7 +122,7 @@ export default function BkKonsultasi() {
             </Link>
           </div>
 
-          {/* Kontainer riwayat gelembung pesan */}
+          {/* Wadah pesan */}
           <div
             ref={messagesRef}
             className="flex-1 space-y-3 overflow-y-auto bg-[#F4F9F9] px-5 py-5"

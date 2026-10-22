@@ -1,37 +1,67 @@
-// Helper sesi (user + token JWT disimpan bersama).
-// "Ingat saya" dicentang -> localStorage (bertahan), tidak -> sessionStorage (hilang saat tab ditutup).
+// utils/auth.js
+
 const USER_KEY = "user";
 const TOKEN_KEY = "token";
 
-const read = (key) => {
+/**
+ * Storage yang sedang aktif = storage tempat token berada.
+ * localStorage didahulukan (login dengan "Ingat saya"), lalu sessionStorage.
+ */
+const getActiveStore = () => {
   try {
-    return localStorage.getItem(key) ?? sessionStorage.getItem(key);
+    if (localStorage.getItem(TOKEN_KEY)) return localStorage;
+    if (sessionStorage.getItem(TOKEN_KEY)) return sessionStorage;
   } catch {
-    return null;
+    /* storage tidak tersedia */
   }
+  return null;
 };
 
-export const getToken = () => read(TOKEN_KEY);
+/**
+ * Mengambil JWT Token dari storage yang aktif
+ */
+export const getToken = () => {
+  const store = getActiveStore();
+  return store ? store.getItem(TOKEN_KEY) : null;
+};
 
-// User dianggap login hanya jika token juga ada.
+/**
+ * Mengambil data User dari storage yang SAMA dengan token.
+ * Sebelumnya user dibaca dari localStorage lebih dulu walau token ada di
+ * sessionStorage, sehingga sisa data lama di localStorage bisa menutupi data
+ * terbaru dan membuat profil terlihat "reset".
+ */
 export const getUser = () => {
   try {
-    if (!getToken()) return null;
-    const raw = read(USER_KEY);
+    const store = getActiveStore();
+    if (!store) return null;
+    const raw = store.getItem(USER_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
   }
 };
 
-// Hapus sesi sepenuhnya (user dan token, di kedua storage)
+/**
+ * Menghapus sesi sepenuhnya dari localStorage dan sessionStorage
+ */
 export const clearUser = () => {
   [localStorage, sessionStorage].forEach((store) => {
-    store.removeItem(USER_KEY);
-    store.removeItem(TOKEN_KEY);
+    try {
+      store.removeItem(USER_KEY);
+      store.removeItem(TOKEN_KEY);
+    } catch (e) {
+      console.error("Gagal menghapus storage:", e);
+    }
   });
 };
 
+/**
+ * Menyimpan sesi baru saat login
+ * @param {Object} user - Data pengguna
+ * @param {string} token - JWT Token
+ * @param {boolean} remember - Jika true simpan di localStorage, jika false di sessionStorage
+ */
 export const saveSession = (user, token, remember = false) => {
   clearUser();
   const store = remember ? localStorage : sessionStorage;
@@ -39,12 +69,26 @@ export const saveSession = (user, token, remember = false) => {
   if (token) store.setItem(TOKEN_KEY, token);
 };
 
-// Perbarui data user di storage yang sama dengan token (dipakai setelah cek /auth/me)
+/**
+ * Memperbarui data user di storage yang aktif (sesuai posisi token),
+ * dan membuang salinan user lama di storage lainnya agar tidak saling menimpa.
+ */
 export const updateUser = (user) => {
-  const store = localStorage.getItem(TOKEN_KEY) ? localStorage : sessionStorage;
+  const store = getActiveStore();
+  if (!store) return;
+
   store.setItem(USER_KEY, JSON.stringify(user));
+
+  const other = store === localStorage ? sessionStorage : localStorage;
+  try {
+    other.removeItem(USER_KEY);
+  } catch {
+    /* abaikan */
+  }
 };
 
-// Kompatibilitas dengan kode lama
+/**
+ * Kompatibilitas dengan fungsi lama
+ */
 export const saveUser = (user, remember = false) =>
   saveSession(user, getToken(), remember);

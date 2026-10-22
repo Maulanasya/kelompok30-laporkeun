@@ -1,18 +1,16 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import { ArrowRight, ArrowLeft, AlertCircle, Loader2 } from "lucide-react";
 
-// Components
 import AuthHeader from "../components/layout/AuthHeader";
 import BlurText from "../components/reactbits/BlurText";
 import CodeSlots from "../components/reactbits/CodeSlots";
 import StepIndicator from "../components/ui/StepIndicator";
 
-// Assets
+import { api } from "../services/api";
 import { images } from "../assets";
 
-// --- Design Tokens ---
 const COLOR_PRIMARY = "#0F4C5C";
 const COLOR_TERTIARY = "#1597A8";
 const ANIMATION_EASE = [0.22, 1, 0.36, 1];
@@ -20,40 +18,42 @@ const ANIMATION_EASE = [0.22, 1, 0.36, 1];
 const CODE_LENGTH = 4;
 const RESEND_SECONDS = 60;
 
-// Ukuran slot menyesuaikan lebar layar agar tidak meluber di HP
 function useIsWide(query = "(min-width: 640px)") {
   const [wide, setWide] = useState(() => window.matchMedia(query).matches);
+
   useEffect(() => {
     const mq = window.matchMedia(query);
     const onChange = (e) => setWide(e.matches);
     mq.addEventListener("change", onChange);
     return () => mq.removeEventListener("change", onChange);
   }, [query]);
+
   return wide;
 }
 
 export default function VerifyCodePage() {
   const navigate = useNavigate();
-  const email = useLocation().state?.email;
+  const { email, resendIn } = useLocation().state ?? {};
   const wide = useIsWide();
 
   const [code, setCode] = useState("");
-  const [status, setStatus] = useState("idle"); // idle | error | success
+  const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [slotsKey, setSlotsKey] = useState(0); // ganti key = reset slot
-  const [cooldown, setCooldown] = useState(RESEND_SECONDS);
+  const [slotsKey, setSlotsKey] = useState(0);
+  const [cooldown, setCooldown] = useState(resendIn ?? RESEND_SECONDS);
   const [resending, setResending] = useState(false);
   const redirectTimer = useRef();
 
   useEffect(() => () => clearTimeout(redirectTimer.current), []);
 
-  // Hitung mundur untuk tombol "Kirim Ulang"
   useEffect(() => {
     if (cooldown <= 0) return;
     const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
     return () => clearTimeout(t);
   }, [cooldown]);
+
+  if (!email) return <Navigate to="/lupa-password" replace />;
 
   const handleChange = (value) => {
     setCode(value);
@@ -70,26 +70,28 @@ export default function VerifyCodePage() {
 
     setLoading(true);
     setError("");
+
     try {
-      // TODO: verifikasi kode ke backend
-      // const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/verify-code`, {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify({ email, code: value }),
-      // });
-      // if (!res.ok) throw new Error("Kode salah atau sudah kedaluwarsa.");
-      // const { resetToken } = await res.json();
-      await new Promise((r) => setTimeout(r, 800));
+      const result = await api.verifyCode(email, value);
+
+      if (result.error || !result.resetToken) {
+        setStatus("error");
+        setError(result.error || "Kode salah atau sudah kedaluwarsa.");
+        return;
+      }
 
       setStatus("success");
-      // Beri waktu animasi centang sebelum pindah halaman
       redirectTimer.current = setTimeout(
-        () => navigate("/buat-sandi-baru", { state: { email /*, resetToken */ } }),
+        () =>
+          navigate("/buat-sandi-baru", {
+            state: { email, resetToken: result.resetToken },
+            replace: true,
+          }),
         1100
       );
-    } catch (err) {
+    } catch {
       setStatus("error");
-      setError(err.message || "Kode salah atau sudah kedaluwarsa.");
+      setError("Terjadi kesalahan koneksi server.");
     } finally {
       setLoading(false);
     }
@@ -104,13 +106,23 @@ export default function VerifyCodePage() {
     if (cooldown > 0 || resending) return;
     setResending(true);
     setError("");
+
     try {
-      // TODO: kirim ulang kode ke email
-      await new Promise((r) => setTimeout(r, 600));
+      const result = await api.forgotPassword(email);
+
+      if (result.retryAfter) {
+        setCooldown(result.retryAfter);
+        return;
+      }
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+
       setCode("");
       setStatus("idle");
       setSlotsKey((k) => k + 1);
-      setCooldown(RESEND_SECONDS);
+      setCooldown(result.resendIn ?? RESEND_SECONDS);
     } catch {
       setError("Gagal mengirim ulang kode. Coba lagi sebentar lagi.");
     } finally {
@@ -120,33 +132,33 @@ export default function VerifyCodePage() {
 
   return (
     <div
-      className="min-h-screen flex flex-col bg-[#F4F9F9] text-slate-800 selection:bg-cyan-100 overflow-x-hidden"
+      className="flex min-h-screen flex-col overflow-x-hidden bg-[#F4F9F9] text-slate-800 selection:bg-cyan-100"
       style={{ fontFamily: "'Plus Jakarta Sans', 'Poppins', sans-serif" }}
     >
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
       `}</style>
 
-      <main className="relative flex-1 flex items-center py-24 overflow-hidden">
+      <main className="relative flex flex-1 items-center overflow-hidden py-24">
         <AuthHeader />
 
-        {/* Background Decorative Blurs */}
+        {/* Decorative Background Elements */}
         <div
           aria-hidden="true"
-          className="absolute -top-40 -left-32 w-130 h-130 rounded-full bg-[#1597A8]/15 blur-3xl pointer-events-none"
+          className="pointer-events-none absolute -left-32 -top-40 h-130 w-130 rounded-full bg-tertiary/15 blur-3xl"
         />
         <div
           aria-hidden="true"
-          className="absolute -bottom-40 right-0 w-115 h-115 rounded-full bg-accent/20 blur-3xl pointer-events-none"
+          className="pointer-events-none absolute -bottom-40 right-0 h-115 w-115 rounded-full bg-accent/20 blur-3xl"
         />
 
-        <div className="relative w-full max-w-7xl mx-auto px-6 grid lg:grid-cols-[1.1fr_0.9fr] gap-14 items-center">
+        <div className="relative mx-auto grid w-full max-w-7xl items-center gap-14 px-6 lg:grid-cols-[1.1fr_0.9fr]">
           {/* Ilustrasi */}
           <div className="hidden lg:block">
             <motion.img
               src={images?.verify}
               alt="Ilustrasi verifikasi kode"
-              className="w-full max-w-xl mx-auto object-contain"
+              className="mx-auto w-full max-w-xl object-contain"
               animate={{ y: [0, -10, 0] }}
               transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
             />
@@ -157,24 +169,20 @@ export default function VerifyCodePage() {
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: ANIMATION_EASE }}
-            className="w-full max-w-md mx-auto lg:mx-0 lg:ml-auto rounded-3xl bg-white border border-slate-200 p-8 md:p-10 shadow-xl shadow-cyan-900/10"
+            className="mx-auto w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 shadow-xl shadow-cyan-900/10 lg:mx-0 lg:ml-auto md:p-10"
           >
-            <div className="space-y-2 mb-8">
+            <div className="mb-8 space-y-2">
               <BlurText
                 text="Kode verifikasi"
                 delay={90}
-                className="text-3xl md:text-4xl font-bold leading-[1.15] flex-wrap text-[#0F4C5C]"
+                className="flex-wrap text-3xl font-bold leading-[1.15] text-primary md:text-4xl"
               />
-              <p className="text-sm text-slate-600 leading-relaxed">
+              <p className="text-sm leading-relaxed text-slate-600">
                 Kami sudah mengirim {CODE_LENGTH} digit kode ke{" "}
-                {email ? (
-                  <span className="font-semibold" style={{ color: COLOR_PRIMARY }}>
-                    {email}
-                  </span>
-                ) : (
-                  "emailmu"
-                )}
-                . Masukkan kode tersebut di bawah ini.
+                <span className="font-semibold" style={{ color: COLOR_PRIMARY }}>
+                  {email}
+                </span>
+                . Masukkan kode tersebut di bawah ini. Kode berlaku 10 menit.
               </p>
             </div>
 
@@ -202,7 +210,7 @@ export default function VerifyCodePage() {
               {error && (
                 <div
                   role="alert"
-                  className="flex items-start gap-2 rounded-2xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700"
+                  className="flex items-start gap-2 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
                 >
                   <AlertCircle size={16} className="mt-0.5 shrink-0" />
                   {error}
@@ -215,17 +223,21 @@ export default function VerifyCodePage() {
                   type="button"
                   onClick={handleResend}
                   disabled={cooldown > 0 || resending}
-                  className="font-semibold transition enabled:hover:underline disabled:text-slate-400 disabled:cursor-not-allowed cursor-pointer"
+                  className="cursor-pointer font-semibold transition enabled:hover:underline disabled:cursor-not-allowed disabled:text-slate-400"
                   style={cooldown > 0 || resending ? undefined : { color: COLOR_TERTIARY }}
                 >
-                  {resending ? "Mengirim..." : cooldown > 0 ? `Kirim ulang (${cooldown} dtk)` : "Kirim Ulang"}
+                  {resending
+                    ? "Mengirim..."
+                    : cooldown > 0
+                    ? `Kirim ulang (${cooldown} dtk)`
+                    : "Kirim Ulang"}
                 </button>
               </p>
 
               <button
                 type="submit"
                 disabled={loading || status === "success"}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-full px-7 py-3.5 text-sm font-semibold text-white shadow-lg shadow-cyan-900/15 transition hover:-translate-y-0.5 hover:brightness-95 disabled:opacity-70 disabled:hover:translate-y-0 cursor-pointer disabled:cursor-not-allowed"
+                className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-full px-7 py-3.5 text-sm font-semibold text-white shadow-lg shadow-cyan-900/15 transition hover:-translate-y-0.5 hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
                 style={{ background: COLOR_PRIMARY }}
               >
                 {loading ? (

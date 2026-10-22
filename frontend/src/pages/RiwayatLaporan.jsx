@@ -9,17 +9,31 @@ import ReportCard from "../components/ReportCard";
 import StatusTimeline from "../components/StatusTimeline";
 import EvidenceItem from "../components/EvidenceItem";
 import Badge from "../components/Badge";
-import { reports, formatDate } from "../data/reports";
+import {
+  reports,
+  formatDate,
+  formatDateTime,
+  KATEGORI_OPTIONS,
+  kategoriLabel,
+} from "../data/reports";
 
 const ANIMATION_EASE = [0.22, 1, 0.36, 1];
+const MIN_DESKRIPSI = 20; // sama dengan Form Laporan
 
-// Ambil field yang bisa diedit dari sebuah laporan
+// Ambil field yang bisa diedit dari sebuah laporan (sama dengan isi Form Laporan)
 const toForm = (report) => ({
-  tanggal: report.tanggal,
   kategori: report.category,
   lokasi: report.lokasi,
+  waktu: report.waktu,
   deskripsi: report.deskripsi,
 });
+
+// Waktu lokal sekarang dalam format datetime-local (untuk atribut max)
+const nowLocalInput = () => {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 16);
+};
 
 // --- Komponen kecil lokal supaya gaya seragam dengan landing page ---
 
@@ -37,15 +51,20 @@ function Panel({ children, className = "", delay = 0 }) {
 }
 
 const fieldBase =
-  "w-full border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-tertiary focus:ring-4 focus:ring-cyan-100 read-only:bg-[#F4F9F9] read-only:text-slate-600 read-only:focus:border-slate-200 read-only:focus:ring-0";
+  "w-full border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-tertiary focus:ring-4 focus:ring-cyan-100 aria-invalid:border-red-400 read-only:bg-[#F4F9F9] read-only:text-slate-600 read-only:focus:border-slate-200 read-only:focus:ring-0 disabled:bg-[#F4F9F9] disabled:text-slate-600 disabled:opacity-100";
 
-function Field({ id, label, children }) {
+function Field({ id, label, error, children }) {
   return (
     <div className="space-y-2">
       <label htmlFor={id} className="block text-sm font-semibold text-primary">
         {label}
       </label>
       {children}
+      {error && (
+        <p role="alert" className="pl-4 text-[11px] font-medium text-red-600">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
@@ -54,6 +73,7 @@ export default function RiwayatLaporan() {
   const [items, setItems] = useState(reports);
   const [selectedId, setSelectedId] = useState(reports[0].id);
   const [isEditing, setIsEditing] = useState(false);
+  const [errors, setErrors] = useState({});
 
   const selected = items.find((r) => r.id === selectedId) ?? items[0];
   const [form, setForm] = useState(() => toForm(selected));
@@ -61,36 +81,62 @@ export default function RiwayatLaporan() {
   const handleSelect = (report) => {
     setSelectedId(report.id);
     setForm(toForm(report));
+    setErrors({});
     setIsEditing(false); // keluar dari mode edit saat pindah laporan
   };
 
   const handleChange = (e) => {
     const { id, value } = e.target;
     setForm((prev) => ({ ...prev, [id]: value }));
+    if (errors[id]) setErrors((prev) => ({ ...prev, [id]: undefined }));
+  };
+
+  // Aturan validasi sama dengan Form Laporan
+  const validate = () => {
+    const found = {};
+
+    if (!form.lokasi.trim()) found.lokasi = "Lokasi kejadian wajib diisi.";
+
+    if (!form.waktu) {
+      found.waktu = "Waktu kejadian wajib diisi.";
+    } else if (new Date(form.waktu).getTime() > Date.now()) {
+      found.waktu = "Waktu kejadian tidak boleh di masa depan.";
+    }
+
+    if (!form.deskripsi.trim()) {
+      found.deskripsi = "Deskripsi kronologi wajib diisi.";
+    } else if (form.deskripsi.trim().length < MIN_DESKRIPSI) {
+      found.deskripsi = `Ceritakan lebih lengkap (minimal ${MIN_DESKRIPSI} karakter).`;
+    }
+
+    setErrors(found);
+    return Object.keys(found).length === 0;
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // Simpan perubahan ke laporan yang sedang dipilih
+    if (!validate()) return;
+
+    // TODO: kirim perubahan ke backend (PATCH laporan milik siswa)
     setItems((prev) =>
       prev.map((r) =>
         r.id === selectedId
           ? {
               ...r,
               category: form.kategori,
-              tanggal: form.tanggal,
-              lokasi: form.lokasi,
-              deskripsi: form.deskripsi,
+              lokasi: form.lokasi.trim(),
+              waktu: form.waktu,
+              deskripsi: form.deskripsi.trim(),
             }
           : r
       )
     );
-    console.log("Data yang disimpan:", form);
     setIsEditing(false);
   };
 
   const handleCancel = () => {
     setForm(toForm(selected));
+    setErrors({});
     setIsEditing(false);
   };
 
@@ -165,7 +211,7 @@ export default function RiwayatLaporan() {
                     className="cursor-pointer rounded-xl outline-none focus-visible:ring-4 focus-visible:ring-cyan-100"
                   >
                     <ReportCard
-                      category={report.category}
+                      category={kategoriLabel(report.category)}
                       ticket={report.ticket}
                       date={formatDate(report.tanggal)}
                       status={report.status}
@@ -191,7 +237,11 @@ export default function RiwayatLaporan() {
                     <Badge status={selected.status} />
                   </div>
                   <p className="mt-1 text-xs text-slate-500">
+                    {kategoriLabel(selected.category)} · Dilaporkan{" "}
                     {formatDate(selected.tanggal, true)}
+                  </p>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    Kejadian: {formatDateTime(selected.waktu)}
                   </p>
                 </div>
               </Panel>
@@ -213,47 +263,71 @@ export default function RiwayatLaporan() {
                   )}
                 </div>
 
-                <form className="space-y-5" onSubmit={handleSubmit}>
+                <form className="space-y-5" onSubmit={handleSubmit} noValidate>
+                  {/* Tanggal laporan dibuat: otomatis, tidak bisa diubah */}
                   <Field id="tanggal" label="Tanggal Laporan">
                     <input
                       id="tanggal"
                       type="date"
-                      value={form.tanggal}
-                      onChange={handleChange}
-                      readOnly={!isEditing}
+                      value={selected.tanggal}
+                      readOnly
                       className={`${fieldBase} rounded-full py-3`}
                     />
                   </Field>
 
-                  <Field id="kategori" label="Kategori">
-                    <input
+                  <Field id="kategori" label="Kategori Kasus">
+                    <select
                       id="kategori"
-                      type="text"
                       value={form.kategori}
                       onChange={handleChange}
-                      readOnly={!isEditing}
+                      disabled={!isEditing}
                       className={`${fieldBase} rounded-full py-3`}
-                    />
+                    >
+                      {KATEGORI_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
                   </Field>
 
-                  <Field id="lokasi" label="Lokasi & Waktu Kejadian">
+                  <Field id="lokasi" label="Lokasi Kejadian" error={errors.lokasi}>
                     <input
                       id="lokasi"
                       type="text"
                       value={form.lokasi}
                       onChange={handleChange}
                       readOnly={!isEditing}
+                      aria-invalid={!!errors.lokasi}
                       className={`${fieldBase} rounded-full py-3`}
                     />
                   </Field>
 
-                  <Field id="deskripsi" label="Deskripsi Kronologi">
+                  <Field id="waktu" label="Waktu Kejadian" error={errors.waktu}>
+                    <input
+                      id="waktu"
+                      type="datetime-local"
+                      max={nowLocalInput()}
+                      value={form.waktu}
+                      onChange={handleChange}
+                      readOnly={!isEditing}
+                      aria-invalid={!!errors.waktu}
+                      className={`${fieldBase} rounded-full py-3`}
+                    />
+                  </Field>
+
+                  <Field
+                    id="deskripsi"
+                    label="Deskripsi Kronologi"
+                    error={errors.deskripsi}
+                  >
                     <textarea
                       id="deskripsi"
                       rows={5}
                       value={form.deskripsi}
                       onChange={handleChange}
                       readOnly={!isEditing}
+                      aria-invalid={!!errors.deskripsi}
                       className={`${fieldBase} resize-none rounded-2xl py-3 leading-relaxed`}
                     />
                   </Field>
@@ -274,6 +348,21 @@ export default function RiwayatLaporan() {
                       )}
                     </div>
                   </div>
+
+                  {/* Identitas dipilih saat membuat laporan: hanya ditampilkan */}
+                  <Field id="identitas" label="Identitas Pelapor">
+                    <input
+                      id="identitas"
+                      type="text"
+                      readOnly
+                      value={
+                        selected.isAnonim
+                          ? "Anonim (nama tidak terlihat oleh Guru BK)"
+                          : "Terverifikasi (nama terlihat oleh Guru BK)"
+                      }
+                      className={`${fieldBase} rounded-full py-3`}
+                    />
+                  </Field>
 
                   {isEditing && (
                     <div className="flex flex-wrap gap-3 pt-1">
