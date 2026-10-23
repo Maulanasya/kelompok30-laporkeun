@@ -1,0 +1,165 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SISWA
+  GURU_BK
+  PSIKOLOG
+  ADMIN
+}
+
+enum StatusLaporan {
+  PENDING    // "Menunggu Ditinjau"
+  DITINJAU
+  PROSES
+  SELESAI
+}
+
+enum KategoriKasus {
+  BULLYING
+  KEKERASAN_VERBAL
+  KEKERASAN_FISIK
+  PELECEHAN_LAINNYA
+}
+
+enum JenisSesi {
+  BK
+  PSIKOLOG
+}
+
+enum StatusSesi {
+  AKTIF
+  SELESAI
+}
+
+model User {
+  id        String   @id @default(uuid())
+  nama      String
+  email     String   @unique
+  nisn      String?  @unique
+  kelas     String?  
+  password  String   // simpan hash bcrypt
+  role      Role     @default(SISWA)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  laporan         Laporan[]
+  riwayatStatus   RiwayatStatusLaporan[]
+  sesiSebagaiSiswa    SesiKonsultasi[] @relation("SesiSiswa")
+  sesiSebagaiBk       SesiKonsultasi[] @relation("SesiGuruBk")
+  sesiSebagaiPsikolog SesiKonsultasi[] @relation("SesiPsikolog")
+  chats           Chat[]
+  artikel         KontenEdukasi[]
+  passwordResets  PasswordReset[]
+}
+
+model Laporan {
+  id              String        @id @default(uuid())
+  kodeTiket       String        @unique
+  pelaporId       String
+  pelapor         User          @relation(fields: [pelaporId], references: [id])
+  isAnonim        Boolean       @default(false)
+  kategori        KategoriKasus
+  lokasiKejadian  String
+  waktuKejadian   DateTime
+  deskripsi       String
+  status          StatusLaporan @default(PENDING)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  isArchived      Boolean       @default(false)
+
+  bukti   BuktiLaporan[]
+  riwayat RiwayatStatusLaporan[]
+  sesi    SesiKonsultasi[]
+  chats   Chat[]                 // <-- Relasi chat terhubung ke Laporan
+
+  @@index([pelaporId])
+  @@index([status])
+}
+
+model BuktiLaporan {
+  id         String   @id @default(uuid())
+  laporanId  String
+  laporan    Laporan  @relation(fields: [laporanId], references: [id], onDelete: Cascade)
+  filePath   String   // path privat, bukan URL publik
+  tipeFile   String
+  uploadedAt DateTime @default(now())
+}
+
+model RiwayatStatusLaporan {
+  id             String         @id @default(uuid())
+  laporanId      String
+  laporan        Laporan        @relation(fields: [laporanId], references: [id], onDelete: Cascade)
+  pengubahId     String
+  pengubah       User           @relation(fields: [pengubahId], references: [id])
+  statusSebelumnya StatusLaporan?
+  statusBaru     StatusLaporan
+  catatan        String?
+  createdAt      DateTime       @default(now())
+
+  @@index([laporanId])
+}
+
+model SesiKonsultasi {
+  id          String     @id @default(uuid())
+  laporanId   String
+  laporan     Laporan    @relation(fields: [laporanId], references: [id], onDelete: Cascade)
+  siswaId     String
+  siswa       User       @relation("SesiSiswa", fields: [siswaId], references: [id])
+  guruBkId    String?
+  guruBk      User?      @relation("SesiGuruBk", fields: [guruBkId], references: [id])
+  psikologId  String?
+  psikolog    User?      @relation("SesiPsikolog", fields: [psikologId], references: [id])
+  jenis       JenisSesi  @default(BK)
+  status      StatusSesi @default(AKTIF)
+  createdAt   DateTime   @default(now())
+
+  @@index([siswaId])
+  @@index([psikologId])
+}
+
+model Chat {
+  id        String   @id @default(uuid())
+  laporanId String   
+  laporan   Laporan  @relation(fields: [laporanId], references: [id], onDelete: Cascade) // <-- Terhubung ke Laporan
+  senderId  String
+  sender    User     @relation(fields: [senderId], references: [id])
+  pesan     String
+  sudahBaca Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([laporanId, createdAt])
+}
+
+model KontenEdukasi {
+  id               String   @id @default(uuid())
+  judul            String
+  ringkasan        String
+  isi              String
+  gambarSampul     String?
+  tanggalPublikasi DateTime?
+  isPublished      Boolean  @default(false)
+  penulisId        String
+  penulis          User     @relation(fields: [penulisId], references: [id])
+}
+
+model PasswordReset {
+  id         String    @id @default(uuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kodeHash   String
+  attempts   Int       @default(0)
+  verifiedAt DateTime?
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId, createdAt])
+}
