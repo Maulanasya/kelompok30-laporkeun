@@ -19,7 +19,7 @@ const LOGGED_IN_LINKS = [
   { key: "beranda", to: "/", label: "Beranda" },
   { key: "form-laporan", to: "/form-laporan", label: "Form Laporan" },
   { key: "riwayat-laporan", to: "/riwayat-laporan", label: "Riwayat Laporan" },
-  { key: "chat-psikolog", to: "/chat-psikolog", label: "Chat Psikolog" },
+  { key: "chat-siswa", to: "/chat", label: "Chat" }, 
 ];
 
 // Menu navigasi khusus untuk peran guru BK

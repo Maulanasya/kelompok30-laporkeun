@@ -13,16 +13,19 @@ import SuccessPage from "./pages/SuccessPage";
 import FailedPage from "./pages/FailedPage";
 import FormLaporanPage from "./pages/FormLaporanPage";
 import RiwayatLaporan from "./pages/RiwayatLaporan";
-import ChatPsikolog from "./pages/ChatPsikolog";
+import ChatSiswa from "./pages/ChatSiswa"; // <-- Ganti import dari ChatPsikolog ke ChatSiswa
 import ProfilePage from "./pages/ProfilePage";
 import NotFoundPage from "./pages/NotFoundPage";
 import RequireRole from "./components/RequireRole";
+
 import BkDashboard from "./pages/bk/BkDashboard";
 import BkDetailLaporan from "./pages/bk/BkDetailLaporan";
 import BkKonsultasi from "./pages/bk/BkKonsultasi";
+
 import PsikologDashboard from "./pages/psikolog/PsikologDashboard";
 import PsikologDetailSesi from "./pages/psikolog/PsikologDetailSesi";
 import PsikologKonsultasi from "./pages/psikolog/PsikologKonsultasi";
+
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminAkun from "./pages/admin/AdminAkun";
 import AdminArtikel from "./pages/admin/AdminArtikel";
@@ -44,29 +47,34 @@ export default function App() {
         {/* Fitur Laporan & Konsultasi (siswa) */}
         <Route path="/form-laporan" element={<FormLaporanPage />} />
         <Route path="/riwayat-laporan" element={<RiwayatLaporan />} />
-        <Route path="/chat-psikolog" element={<ChatPsikolog />} />
+        {/* Route chat diganti jadi /chat */}
+        <Route path="/chat" element={<ChatSiswa />} /> 
 
         {/* Profil */}
         <Route path="/profile" element={<ProfilePage />} />
 
         {/* Area Guru BK: hanya peran guru_bk */}
         <Route path="/bk" element={<Navigate to="/bk/laporan" replace />} />
-        <Route element={<RequireRole allow={["guru_bk"]} />}>
+        <Route element={<RequireRole allow={["GURU_BK", "guru_bk"]} />}>
           <Route path="/bk/laporan" element={<BkDashboard />} />
           <Route path="/bk/laporan/:kode" element={<BkDetailLaporan />} />
           <Route path="/bk/konsultasi" element={<BkKonsultasi />} />
         </Route>
 
-        {/* Area psikolog (sementara tanpa RequireRole, untuk lihat tampilan) */}
-<Route path="/psikolog" element={<PsikologDashboard />} />
-<Route path="/psikolog/sesi/:id" element={<PsikologDetailSesi />} />
-<Route path="/psikolog/konsultasi" element={<PsikologKonsultasi />} />
+        {/* Area Psikolog: hanya peran psikolog */}
+        <Route element={<RequireRole allow={["PSIKOLOG", "psikolog"]} />}>
+          <Route path="/psikolog" element={<PsikologDashboard />} />
+          <Route path="/psikolog/sesi/:id" element={<PsikologDetailSesi />} />
+          <Route path="/psikolog/konsultasi" element={<PsikologKonsultasi />} />
+        </Route>
 
-{/* Area admin (sementara tanpa RequireRole, untuk lihat tampilan) */}
-<Route path="/admin" element={<AdminDashboard />} />
-<Route path="/admin/akun" element={<AdminAkun />} />
-<Route path="/admin/artikel" element={<AdminArtikel />} />
-<Route path="/admin/riwayat" element={<AdminRiwayat />} />
+        {/* Area Admin: hanya peran admin */}
+        <Route element={<RequireRole allow={["ADMIN", "admin"]} />}>
+          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/akun" element={<AdminAkun />} />
+          <Route path="/admin/artikel" element={<AdminArtikel />} />
+          <Route path="/admin/riwayat" element={<AdminRiwayat />} />
+        </Route>
 
         {/* Fallback 404 */}
         <Route path="*" element={<NotFoundPage />} />

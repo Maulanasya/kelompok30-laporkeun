@@ -1,177 +1,163 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { motion } from "motion/react";
-import { ArrowLeft, EyeOff, MessageCircle, CheckCircle2 } from "lucide-react";
-
+import { ArrowLeft, MapPin, Clock, Tag, EyeOff, FileText, UserRound } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
 import BkShell, { Panel } from "../../components/layout/BkShell";
-import SesiBadge from "../../components/psikolog/SesiBadge";
-import { CASES } from "../../data/psikologCases";
+import StatusBadge from "../../components/bk/StatusBadge";
+import { api } from "../../services/api";
+import { CATEGORY_LABEL } from "../../data/bkReports";
 
-// Helper untuk menghasilkan label timestamp format bahasa Indonesia
-const nowLabel = () =>
-  new Date().toLocaleString("id-ID", {
+function formatTanggal(iso) {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  return d.toLocaleDateString("id-ID", {
     day: "numeric",
-    month: "short",
+    month: "long",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
   });
+}
 
 export default function PsikologDetailSesi() {
-  const { id } = useParams();
-  const item = CASES.find((c) => c.id === id);
+  const { id } = useParams(); // Ini adalah kodeTiket dari URL
+  const [report, setReport] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // State untuk menyimpan status sesi dan riwayat aktivitas lokal
-  const [status, setStatus] = useState(item?.status);
-  const [riwayat, setRiwayat] = useState(item?.riwayat ?? []);
+  useEffect(() => {
+    if (!id) return;
+    setLoading(true);
+    api.getDetailLaporan(id)
+      .then((res) => setReport(res?.data || res?.laporan || res))
+      .catch((err) => setError(err.message || "Gagal memuat detail sesi"))
+      .finally(() => setLoading(false));
+  }, [id]);
 
-  // Tampilan penanganan jika ID sesi tidak ditemukan pada dataset
-  if (!item) {
+  if (loading) {
     return (
-      <BkShell title="Sesi tidak ditemukan">
-        <Link to="/psikolog" className="font-semibold text-tertiary hover:underline">
-          Kembali ke daftar siswa
-        </Link>
+      <BkShell title="Detail Sesi" subtitle="Memuat...">
+        <Panel className="p-6">Memuat detail sesi...</Panel>
       </BkShell>
     );
   }
 
-  // Helper untuk memperbarui status dan menambahkan entri riwayat baru
-  const updateStatus = (next, teks) => {
-    setStatus(next);
-    setRiwayat((prev) => [...prev, { waktu: nowLabel(), teks }]);
-  };
+  if (error || !report) {
+    return (
+      <BkShell title="Detail Sesi" subtitle="Terjadi kesalahan">
+        <Panel className="p-6 text-danger">
+          {error || "Laporan tidak ditemukan."}
+        </Panel>
+      </BkShell>
+    );
+  }
 
-  // Struktur array pasangan label & nilai untuk mempermudah render list informasi
-  const info = [
-    ["Kategori", item.kategori],
-    ["Lokasi kejadian", item.lokasi],
-    ["Waktu kejadian", item.waktuKejadian],
-    ["Kode laporan", item.kode],
-    ["Bukti pendukung", item.jumlahBukti > 0 ? `${item.jumlahBukti} gambar` : "Tidak ada"],
-  ];
+  const sesiAktif = report.sesi?.[0];
 
   return (
     <BkShell
-      title={item.kategori}
-      subtitle={`Laporan ${item.kode}`}
-      actions={
+      title={`Sesi Pendampingan: ${report.kodeTiket}`}
+      subtitle="Tinjau detail laporan dan mulai sesi konseling."
+    >
+      <Panel className="space-y-6 p-6">
         <Link
           to="/psikolog"
-          className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-5 py-2.5 text-xs font-semibold text-primary transition hover:border-tertiary"
+          className="inline-flex items-center gap-2 text-sm text-tertiary hover:underline"
         >
-          <ArrowLeft size={14} /> Semua siswa
+          <ArrowLeft size={16} /> Kembali ke daftar siswa
         </Link>
-      }
-    >
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
-        {/* Kolom Kiri: Detail laporan, kronologi, dan rujukan dari Guru BK */}
-        <div className="space-y-6">
-          <Panel delay={0} className="p-6">
-            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-              <h2 className="font-bold text-primary">Informasi kejadian</h2>
-              <SesiBadge status={status} />
-            </div>
 
-            <dl className="grid gap-x-6 gap-y-4 text-sm sm:grid-cols-2">
-              {info.map(([key, val]) => (
-                <div key={key}>
-                  <dt className="text-xs text-slate-500">{key}</dt>
-                  <dd className="font-semibold text-primary">{val}</dd>
-                </div>
-              ))}
-              <div className="sm:col-span-2">
-                <dt className="text-xs text-slate-500">Siswa</dt>
-                <dd className="font-semibold text-primary">
-                  {item.anonim ? (
-                    <span className="inline-flex items-center gap-2">
-                      <EyeOff size={15} className="text-slate-500" />
-                      Anonim, identitas disembunyikan
-                    </span>
-                  ) : (
-                    `${item.pelapor}, ${item.kelas}`
-                  )}
-                </dd>
-              </div>
-            </dl>
-          </Panel>
+        <div className="flex flex-wrap items-center gap-3">
+          <StatusBadge status={report.status} />
+          <span className="text-sm text-slate-500">
+            Dialihkan pada {formatTanggal(sesiAktif?.createdAt || report.updatedAt)}
+          </span>
+        </div>
 
-          <Panel delay={0.08} className="p-6">
-            <h2 className="mb-3 font-bold text-primary">Kronologi</h2>
-            <p className="max-w-prose leading-relaxed text-slate-700">{item.kronologi}</p>
-          </Panel>
-
-          <Panel delay={0.16} className="p-6">
-            <h2 className="mb-3 font-bold text-primary">
-              Catatan guru BK ({item.dialihkanOleh})
-            </h2>
-            <p className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4 text-sm leading-relaxed text-slate-700">
-              {item.alasanPengalihan}
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <div className="space-y-2">
+            <p className="flex items-center gap-2 text-sm font-semibold text-primary">
+              <Tag size={16} className="text-tertiary" /> Kategori
             </p>
-          </Panel>
+            <p className="text-sm text-slate-700">
+              {CATEGORY_LABEL[report.kategori] || report.kategori}
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <p className="flex items-center gap-2 text-sm font-semibold text-primary">
+              <EyeOff size={16} className="text-tertiary" /> Pelapor
+            </p>
+            <p className="text-sm text-slate-700">
+              {report.isAnonim
+                ? "Anonim"
+                : `${report.pelapor?.nama || "-"} ${
+                    report.pelapor?.kelas ? `(${report.pelapor.kelas})` : ""
+                  }`}
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <p className="flex items-center gap-2 text-sm font-semibold text-primary">
+              <MapPin size={16} className="text-tertiary" /> Lokasi Kejadian
+            </p>
+            <p className="text-sm text-slate-700">{report.lokasiKejadian}</p>
+          </div>
+
+          <div className="space-y-2">
+            <p className="flex items-center gap-2 text-sm font-semibold text-primary">
+              <Clock size={16} className="text-tertiary" /> Waktu Kejadian
+            </p>
+            <p className="text-sm text-slate-700">
+              {formatTanggal(report.waktuKejadian)}
+            </p>
+          </div>
         </div>
 
-        {/* Kolom Kanan: Panel tindakan psikolog dan timeline riwayat */}
-        <div className="space-y-6">
-          <Panel delay={0.1} className="space-y-5 p-6 lg:sticky lg:top-28">
-            <h2 className="font-bold text-primary">Tindakan</h2>
+        <div className="space-y-2">
+          <p className="flex items-center gap-2 text-sm font-semibold text-primary">
+            <FileText size={16} className="text-tertiary" /> Kronologi
+          </p>
+          <p className="whitespace-pre-line rounded-xl border border-slate-200 bg-[#F4F9F9] p-4 text-sm leading-relaxed text-slate-700">
+            {report.deskripsi}
+          </p>
+        </div>
 
-            {/* Aksi adaptif berdasarkan status pendampingan saat ini */}
-            {status === "menunggu" && (
-              <button
-                type="button"
-                onClick={() => updateStatus("berjalan", "Pendampingan diterima psikolog")}
-                className="w-full cursor-pointer rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:brightness-110"
-              >
-                Terima pendampingan
-              </button>
-            )}
+        {/* Info Guru BK yang Mengalihkan */}
+        {sesiAktif?.guruBk && (
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <p className="flex items-center gap-2 text-sm font-semibold text-primary mb-2">
+              <UserRound size={16} className="text-tertiary" /> Dialihkan Oleh
+            </p>
+            <p className="text-sm text-slate-700">{sesiAktif.guruBk.nama}</p>
+          </div>
+        )}
 
-            {status === "berjalan" && (
-              <div className="space-y-3">
-                <Link
-                  to={`/psikolog/konsultasi?sesi=${item.id}`}
-                  className="flex w-full items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:brightness-110"
-                >
-                  <MessageCircle size={16} /> Buka ruang chat
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => updateStatus("selesai", "Pendampingan selesai")}
-                  className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border border-primary/15 bg-white px-5 py-2.5 text-sm font-semibold text-primary transition hover:border-tertiary/50 hover:text-tertiary"
-                >
-                  <CheckCircle2 size={16} /> Tandai selesai
-                </button>
-              </div>
-            )}
-
-            {status === "selesai" && (
-              <p className="rounded-2xl bg-emerald-50 p-4 text-sm leading-relaxed text-emerald-800">
-                Pendampingan ini sudah selesai.
-              </p>
-            )}
-          </Panel>
-
-          <Panel delay={0.2} className="p-6">
-            <h2 className="mb-5 font-bold text-primary">Riwayat penanganan</h2>
-            <ol className="relative ml-3 space-y-6 border-l-2 border-cyan-100">
-              {riwayat.map((r, i) => (
-                <motion.li
-                  key={`${r.waktu}-${i}`}
-                  initial={{ opacity: 0, y: -8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4 }}
-                  className="relative pl-6"
-                >
-                  <span className="absolute -left-2.25 top-1 h-4 w-4 rounded-full bg-primary ring-4 ring-white" />
-                  <p className="text-sm font-semibold text-primary">{r.teks}</p>
-                  <p className="mt-1 text-xs text-slate-500">{r.waktu}</p>
-                </motion.li>
+        {report.bukti && report.bukti.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-sm font-semibold text-primary">Bukti</p>
+            <ul className="space-y-2">
+              {report.bukti.map((b) => (
+                <li key={b.id} className="rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-700">
+                  <a href={`http://localhost:5001/${b.filePath}`} target="_blank" rel="noreferrer" className="text-tertiary hover:underline">
+                    {b.filePath.split("/").pop()}
+                  </a>
+                </li>
               ))}
-            </ol>
-          </Panel>
+            </ul>
+          </div>
+        )}
+        
+        {/* Tombol untuk masuk ke ruang chat */}
+        <div className="pt-4">
+            <Link
+              to={`/chat?kode=${report.kodeTiket}&lawan=PSIKOLOG`} // Buka chat sebagai psikolog
+              className="inline-flex w-full md:w-auto justify-center items-center gap-2 rounded-full bg-primary px-8 py-3 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-primary-hover"
+            >
+              Mulai Sesi Konseling (Chat)
+            </Link>
         </div>
-      </div>
+      </Panel>
     </BkShell>
   );
 }

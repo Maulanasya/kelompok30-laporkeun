@@ -93,4 +93,5 @@ export const api = {
 
   // 3. Riwayat Chat Konsultasi
   getChatHistory: (kodeTiket) => request(`/chat/${kodeTiket}`),
+  request: (path, opts) => request(path, opts),
 };

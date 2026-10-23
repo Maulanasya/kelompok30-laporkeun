@@ -1,10 +1,9 @@
 export const KATEGORI_KASUS = [
   { value: "", label: "Pilih jenis laporan" },
-  { value: "verbal", label: "Bullying Verbal" },
-  { value: "fisik", label: "Bullying Fisik" },
-  { value: "cyber", label: "Cyber Bullying" },
-  { value: "sosial", label: "Bullying Sosial" },
-  { value: "lainnya", label: "Lainnya" },
+  { value: "BULLYING", label: "Bullying / Cyber Bullying / Sosial" },
+  { value: "KEKERASAN_VERBAL", label: "Kekerasan Verbal" },
+  { value: "KEKERASAN_FISIK", label: "Kekerasan Fisik" },
+  { value: "PELECEHAN_LAINNYA", label: "Pelecehan / Lainnya" },
 ];
 
 export const INFO_UTAMA = [

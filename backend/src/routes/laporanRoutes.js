@@ -3,6 +3,9 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 const multer = require("multer");
+const { updateLaporanSiswa } = require("../controllers/laporanController");
+const { archiveLaporan } = require("../controllers/laporanController");
+const { alihkanKePsikolog } = require("../controllers/laporanController");
 
 const router = express.Router();
 const {
@@ -81,7 +84,7 @@ const requireRole =
     next();
   };
 
-const STAFF = ["GURU_BK", "ADMIN"];
+const STAFF = ["GURU_BK", "PSIKOLOG", "ADMIN"];
 
 // Publik: pelacakan laporan dengan kode tiket (tanpa data pelapor)
 router.get("/tiket/:kodeTiket", getLaporanByTiket);
@@ -94,7 +97,11 @@ router.post(
   uploadBukti,
   createLaporan
 );
+// Siswa edit laporan miliknya
+router.put("/:id", verifyToken, requireRole("SISWA"), updateLaporanSiswa);
 router.get("/saya", verifyToken, requireRole("SISWA"), getLaporanSaya);
+router.patch("/:id/archive", verifyToken, requireRole(...STAFF), archiveLaporan);
+router.patch("/:id/alihkan", verifyToken, requireRole(...STAFF), alihkanKePsikolog);
 
 // Guru BK / Admin: daftar, detail lengkap, dan ubah status laporan
 router.get("/", verifyToken, requireRole(...STAFF), getAllLaporan);
@@ -110,5 +117,6 @@ router.patch(
   requireRole(...STAFF),
   updateStatusLaporan
 );
+
 
 module.exports = router;

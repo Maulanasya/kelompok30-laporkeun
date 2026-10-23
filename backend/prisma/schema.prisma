@@ -73,10 +73,12 @@ model Laporan {
   status          StatusLaporan @default(PENDING)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
+  isArchived      Boolean       @default(false)
 
   bukti   BuktiLaporan[]
   riwayat RiwayatStatusLaporan[]
   sesi    SesiKonsultasi[]
+  chats   Chat[]                 // <-- Relasi chat terhubung ke Laporan
 
   @@index([pelaporId])
   @@index([status])
@@ -119,23 +121,21 @@ model SesiKonsultasi {
   status      StatusSesi @default(AKTIF)
   createdAt   DateTime   @default(now())
 
-  chats Chat[]
-
   @@index([siswaId])
   @@index([psikologId])
 }
 
 model Chat {
-  id        String         @id @default(uuid())
-  sesiId    String
-  sesi      SesiKonsultasi @relation(fields: [sesiId], references: [id], onDelete: Cascade)
+  id        String   @id @default(uuid())
+  laporanId String   
+  laporan   Laporan  @relation(fields: [laporanId], references: [id], onDelete: Cascade) // <-- Terhubung ke Laporan
   senderId  String
-  sender    User           @relation(fields: [senderId], references: [id])
+  sender    User     @relation(fields: [senderId], references: [id])
   pesan     String
-  sudahBaca Boolean        @default(false)
-  createdAt DateTime       @default(now())
+  sudahBaca Boolean  @default(false)
+  createdAt DateTime @default(now())
 
-  @@index([sesiId, createdAt])
+  @@index([laporanId, createdAt])
 }
 
 model KontenEdukasi {
