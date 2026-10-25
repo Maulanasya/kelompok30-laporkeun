@@ -1,3 +1,4 @@
+const axios = require("axios");
 const crypto = require("crypto");
 const prisma = require("../config/db");
 const { emitAdminStats } = require("../services/adminStats");
@@ -15,14 +16,11 @@ const MAX_DESKRIPSI = 5000;
 const MAX_LOKASI = 200;
 const MAX_CATATAN = 500;
 
-// Psikolog hanya boleh menyelesaikan pendampingan; perubahan status lain dilakukan guru BK
 const PSIKOLOG_ALLOWED_STATUS = ["SELESAI"];
 
-// Helper untuk mengirim respon gagal
 const fail = (res, status, text) =>
   res.status(status).json({ error: text, message: text });
 
-// Custom error untuk penanganan HTTP di dalam transaksi
 class HttpError extends Error {
   constructor(status, message) {
     super(message);
@@ -30,22 +28,18 @@ class HttpError extends Error {
   }
 }
 
-// Konversi nilai menjadi boolean
 const parseBool = (value, fallback) =>
   value === undefined ? fallback : value === true || value === "true" || value === "1";
 
-// Menghasilkan kode tiket unik
 const generateKodeTiket = () =>
   "LPR-" + crypto.randomBytes(4).toString("hex").toUpperCase();
 
-// Normalisasi kode tiket (uppercase & trim)
 const normTiket = (value) => String(value || "").trim().toUpperCase();
 
 const isPsikolog = (req) => req.user?.role === "PSIKOLOG";
 const isAssignedTo = (sesiList, userId) =>
   (sesiList || []).some((s) => s.psikologId === userId);
 
-// Mengambil Guru BK aktif pertama sebagai fallback
 const getDefaultGuruBk = () =>
   prisma.user.findFirst({
     where: { role: "GURU_BK", isActive: true },
@@ -53,7 +47,6 @@ const getDefaultGuruBk = () =>
     select: { id: true, nama: true, email: true },
   });
 
-// Validasi field laporan
 const validateFields = ({ lokasiKejadian, waktuKejadian, deskripsi }) => {
   if (lokasiKejadian !== undefined) {
     const lokasi = String(lokasiKejadian).trim();
@@ -75,7 +68,6 @@ const validateFields = ({ lokasiKejadian, waktuKejadian, deskripsi }) => {
   return null;
 };
 
-// Format sesi untuk staf (tanpa siswaId / laporanId)
 const sesiForStaff = (s, fallbackGuruBk) => ({
   id: s.id,
   status: s.status,
@@ -87,7 +79,6 @@ const sesiForStaff = (s, fallbackGuruBk) => ({
   psikolog: s.psikolog || null,
 });
 
-// Format sesi untuk siswa (hanya nama pendamping)
 const sesiForSiswa = (s, defaultGuruBk) => ({
   status: s.status,
   jenis: s.jenis,
@@ -95,7 +86,6 @@ const sesiForSiswa = (s, defaultGuruBk) => ({
   psikolog: s.psikolog ? { nama: s.psikolog.nama } : null,
 });
 
-// Format data laporan untuk staf (dengan masking jika anonim)
 const presentForStaff = (laporan, viewer, fallbackGuruBk) => {
   const { pelaporId, pelapor, riwayat, sesi, ...rest } = laporan;
 
@@ -133,7 +123,7 @@ const SESI_INCLUDE = {
 // 1. Siswa membuat laporan baru
 exports.createLaporan = async (req, res) => {
   try {
-    const { kategori, lokasiKejadian, waktuKejadian, deskripsi, isAnonim } = req.body;
+    const { kategori, lokasiKejadian, waktuKejadian, deskripsi, isAnonim, noWhatsapp } = req.body;
 
     if (!kategori || !lokasiKejadian || !waktuKejadian || !deskripsi) {
       return fail(res, 400, "Kategori, lokasi, waktu kejadian, dan deskripsi wajib diisi.");
@@ -151,6 +141,7 @@ exports.createLaporan = async (req, res) => {
       waktuKejadian: new Date(waktuKejadian),
       deskripsi: String(deskripsi).trim(),
       isAnonim: parseBool(isAnonim, true),
+      noWhatsapp: noWhatsapp || null,
       status: "PENDING",
       ...(req.file
         ? {
@@ -188,9 +179,24 @@ exports.createLaporan = async (req, res) => {
             createdAt: true,
           },
         });
+
+        // --- KIRIM WA OTOMATIS (PESAN CUSTOM KE-2) ---
+        if (noWhatsapp) {
+          const linkLacak = `http://localhost:5173/riwayat-laporan?kode=${laporan.kodeTiket}`;
+          const pesan = `Halo, terima kasih sudah melapor ke LaporKeun!\n\nBerikut adalah kode tiket rahasiamu: *${laporan.kodeTiket}*.\n\nSimpan kode ini. Kamu bisa memantau status laporanmu melalui tautan berikut:\n${linkLacak}\n\nJangan bagikan kode ini ke siapa pun ya!`;
+
+          axios.post("https://api.fonnte.com/send", {
+            target: noWhatsapp,
+            message: pesan,
+          }, {
+            headers: { Authorization: process.env.FONNTE_TOKEN }
+          }).catch((err) => console.error("Gagal kirim WA:", err.message));
+        }
+        // ---------------------------------------------
+
         return res.status(201).json({ message: "Laporan berhasil dikirim!", laporan });
       } catch (err) {
-        if (err.code === "P2002") continue; // Coba lagi jika kode tiket kembar
+        if (err.code === "P2002") continue;
         throw err;
       }
     }
@@ -603,5 +609,49 @@ exports.alihkanKePsikolog = async (req, res) => {
     if (error instanceof HttpError) return fail(res, error.status, error.message);
     console.error("Alihkan ke Psikolog Error:", error);
     return fail(res, 500, "Gagal mengalihkan laporan.");
+  }
+};
+exports.kirimTiketKeWa = async (req, res) => {
+  try {
+    const { kodeTiket } = req.params;
+    const { noWhatsapp } = req.body;
+
+    if (!noWhatsapp) {
+      return fail(res, 400, "Nomor WhatsApp wajib diisi.");
+    }
+
+    const laporan = await prisma.laporan.findUnique({
+      where: { kodeTiket: normTiket(kodeTiket) },
+      select: { kodeTiket: true, isArchived: true },
+    });
+
+    if (!laporan || laporan.isArchived) {
+      return fail(res, 404, "Laporan tidak ditemukan.");
+    }
+
+    const linkLacak = `http://localhost:5173/riwayat-laporan?kode=${laporan.kodeTiket}`;
+    const pesan = `Halo, terima kasih sudah melapor ke LaporKeun!\n\nBerikut adalah kode tiket rahasiamu: *${laporan.kodeTiket}*.\n\nSimpan kode ini. Kamu bisa memantau status laporanmu melalui tautan berikut:\n${linkLacak}\n\nJangan bagikan kode ini ke siapa pun ya!`;
+
+    // Kirim via Fonnte
+    await axios.post("https://api.fonnte.com/send", {
+      target: noWhatsapp,
+      message: pesan,
+    }, {
+      headers: { Authorization: process.env.FONNTE_TOKEN }
+    }).catch((err) => {
+      console.error("Gagal kirim WA:", err.message);
+      throw new Error("Gagal mengirim pesan WhatsApp. Cek nomor atau koneksi server.");
+    });
+
+    // Simpan nomor WA ke laporan (opsional, biar ke-track)
+    await prisma.laporan.update({
+      where: { kodeTiket: laporan.kodeTiket },
+      data: { noWhatsapp }
+    });
+
+    return res.json({ message: "Kode tiket berhasil dikirim ke WhatsApp!" });
+  } catch (error) {
+    console.error("Kirim Tiket ke WA Error:", error);
+    return fail(res, 500, error.message || "Gagal mengirim kode tiket ke WhatsApp.");
   }
 };

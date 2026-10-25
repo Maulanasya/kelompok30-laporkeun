@@ -18,6 +18,7 @@ const initialForm = {
   waktu: "",
   deskripsi: "",
   identitas: "anonim",
+  noWhatsapp: "", // <-- TAMBAHAN
   setuju: false,
 };
 
@@ -54,6 +55,7 @@ const kirimLaporan = async ({ form, file }) => {
   body.append("waktuKejadian", new Date(form.waktu).toISOString());
   body.append("deskripsi", form.deskripsi.trim());
   body.append("isAnonim", String(form.identitas === "anonim"));
+  body.append("noWhatsapp", form.noWhatsapp); // <-- TAMBAHAN
   if (file) body.append("bukti", file);
 
   let res;
@@ -162,6 +164,21 @@ export default function FormLaporan() {
 
       <FormField label="Unggah Bukti Pendukung (Opsional)">
         <UploadBukti file={file} onFileChange={setFile} />
+      </FormField>
+
+      {/* TAMBAHAN INPUT NOMOR WA */}
+      <FormField label="Nomor WhatsApp (Opsional)" htmlFor="noWhatsapp">
+        <input
+          id="noWhatsapp"
+          type="tel"
+          value={form.noWhatsapp}
+          onChange={handleChange("noWhatsapp")}
+          placeholder="Contoh: 08123456789 (untuk notifikasi tiket)"
+          className={`h-10 ${inputBase} ${borderClass("noWhatsapp")}`}
+        />
+        <p className="text-[10px] text-slate-500 mt-1">
+          Isi jika ingin menerima kode tiket & link pelacakan via WhatsApp.
+        </p>
       </FormField>
 
       <IdentitasRadio value={form.identitas} onChange={handleChange("identitas")} />

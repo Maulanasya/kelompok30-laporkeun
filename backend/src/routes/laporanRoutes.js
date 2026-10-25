@@ -16,6 +16,7 @@ const {
   archiveLaporan,
   getDaftarPsikolog,
   alihkanKePsikolog,
+  kirimTiketKeWa, // <-- IMPORT FUNGSI BARU
 } = require("../controllers/laporanController");
 const { verifyToken } = require("../middlewares/authMiddleware");
 
@@ -86,10 +87,17 @@ const requireRole =
 const STAFF = ["GURU_BK", "PSIKOLOG", "ADMIN"];
 const MANAGER = ["GURU_BK", "ADMIN"];
 
-// Publik: Melacak laporan berdasarkan kode tiket
+// --- ROUTE PUBLIK (Tanpa Login) ---
+
+// Melacak laporan berdasarkan kode tiket
 router.get("/tiket/:kodeTiket", getLaporanByTiket);
 
-// Siswa (wajib login): Membuat, melihat, dan memperbarui laporan sendiri
+// Kirim ulang kode tiket ke WhatsApp (dari halaman Success)
+router.post("/:kodeTiket/kirim-wa", kirimTiketKeWa); 
+
+// --- ROUTE SISWA (Wajib Login) ---
+
+// Membuat, melihat, dan memperbarui laporan sendiri
 router.post(
   "/",
   verifyToken,
@@ -99,6 +107,8 @@ router.post(
 );
 router.get("/saya", verifyToken, requireRole("SISWA"), getLaporanSaya);
 router.put("/:id", verifyToken, requireRole("SISWA"), updateLaporanSiswa);
+
+// --- ROUTE STAF (Guru BK / Psikolog / Admin) ---
 
 // Guru BK / Admin: Mengelola daftar psikolog, pengalihan laporan, dan arsip
 router.get("/psikolog", verifyToken, requireRole(...MANAGER), getDaftarPsikolog);
