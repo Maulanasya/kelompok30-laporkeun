@@ -13,8 +13,9 @@ import SuccessPage from "./pages/SuccessPage";
 import FailedPage from "./pages/FailedPage";
 import FormLaporanPage from "./pages/FormLaporanPage";
 import RiwayatLaporan from "./pages/RiwayatLaporan";
-import ChatSiswa from "./pages/ChatSiswa"; // <-- Ganti import dari ChatPsikolog ke ChatSiswa
+import ChatSiswa from "./pages/ChatSiswa";
 import ProfilePage from "./pages/ProfilePage";
+import DetailArtikel from "./pages/DetailArtikel";
 import NotFoundPage from "./pages/NotFoundPage";
 import RequireRole from "./components/RequireRole";
 
@@ -31,6 +32,8 @@ import AdminAkun from "./pages/admin/AdminAkun";
 import AdminArtikel from "./pages/admin/AdminArtikel";
 import AdminRiwayat from "./pages/admin/AdminRiwayat";
 
+// Setiap grup <RequireRole> membungkus rute yang hanya boleh diakses peran tertentu.
+// Peran ditulis dalam dua kapitalisasi (enum backend dan huruf kecil) agar cocok dengan kedua format.
 export default function App() {
   return (
     <AuthProvider>
@@ -40,20 +43,39 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/success" element={<SuccessPage />} />
         <Route path="/failed" element={<FailedPage />} />
+
+        {/* Alur reset sandi, berurutan: lupa sandi, verifikasi kode, sandi baru */}
         <Route path="/lupa-password" element={<ForgotPasswordPage />} />
         <Route path="/verifikasi-kode" element={<VerifyCodePage />} />
         <Route path="/buat-sandi-baru" element={<NewPasswordPage />} />
 
-        {/* Fitur Laporan & Konsultasi (siswa) */}
+        <Route path="/artikel/:id" element={<DetailArtikel />} />
+
+        {/* Sengaja publik: pelapor melacak laporannya dengan kode tiket tanpa perlu login */}
         <Route path="/form-laporan" element={<FormLaporanPage />} />
         <Route path="/riwayat-laporan" element={<RiwayatLaporan />} />
-        {/* Route chat diganti jadi /chat */}
-        <Route path="/chat" element={<ChatSiswa />} /> 
 
-        {/* Profil */}
-        <Route path="/profile" element={<ProfilePage />} />
+        <Route element={<RequireRole allow={["SISWA", "siswa"]} />}>
+          <Route path="/chat" element={<ChatSiswa />} />
+        </Route>
 
-        {/* Area Guru BK: hanya peran guru_bk */}
+        {/* Semua peran yang sudah login */}
+        <Route
+          element={
+            <RequireRole
+              allow={[
+                "SISWA", "siswa",
+                "GURU_BK", "guru_bk",
+                "PSIKOLOG", "psikolog",
+                "ADMIN", "admin",
+              ]}
+            />
+          }
+        >
+          <Route path="/profile" element={<ProfilePage />} />
+        </Route>
+
+        {/* /bk tidak punya halaman sendiri, jadi diarahkan ke daftar laporan */}
         <Route path="/bk" element={<Navigate to="/bk/laporan" replace />} />
         <Route element={<RequireRole allow={["GURU_BK", "guru_bk"]} />}>
           <Route path="/bk/laporan" element={<BkDashboard />} />
@@ -61,14 +83,12 @@ export default function App() {
           <Route path="/bk/konsultasi" element={<BkKonsultasi />} />
         </Route>
 
-        {/* Area Psikolog: hanya peran psikolog */}
         <Route element={<RequireRole allow={["PSIKOLOG", "psikolog"]} />}>
           <Route path="/psikolog" element={<PsikologDashboard />} />
           <Route path="/psikolog/sesi/:id" element={<PsikologDetailSesi />} />
           <Route path="/psikolog/konsultasi" element={<PsikologKonsultasi />} />
         </Route>
 
-        {/* Area Admin: hanya peran admin */}
         <Route element={<RequireRole allow={["ADMIN", "admin"]} />}>
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/akun" element={<AdminAkun />} />
@@ -76,7 +96,7 @@ export default function App() {
           <Route path="/admin/riwayat" element={<AdminRiwayat />} />
         </Route>
 
-        {/* Fallback 404 */}
+        {/* Wajib terakhir: menangkap semua path yang tidak cocok dengan rute di atas */}
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </AuthProvider>

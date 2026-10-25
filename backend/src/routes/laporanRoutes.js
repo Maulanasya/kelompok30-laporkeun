@@ -3,9 +3,6 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 const multer = require("multer");
-const { updateLaporanSiswa } = require("../controllers/laporanController");
-const { archiveLaporan } = require("../controllers/laporanController");
-const { alihkanKePsikolog } = require("../controllers/laporanController");
 
 const router = express.Router();
 const {
@@ -15,10 +12,14 @@ const {
   getDetailLaporan,
   getLaporanSaya,
   updateStatusLaporan,
+  updateLaporanSiswa,
+  archiveLaporan,
+  getDaftarPsikolog,
+  alihkanKePsikolog,
 } = require("../controllers/laporanController");
 const { verifyToken } = require("../middlewares/authMiddleware");
 
-// ---------- Upload bukti (disimpan privat, tidak diserve sebagai file publik) ----------
+// Konfigurasi direktori penyimpanan file bukti
 const UPLOAD_DIR = path.join(__dirname, "../../uploads/bukti");
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
@@ -33,7 +34,7 @@ const ALLOWED_TYPES = [
 const upload = multer({
   storage: multer.diskStorage({
     destination: (req, file, cb) => cb(null, UPLOAD_DIR),
-    // Nama file diacak, nama asli dari pengguna tidak dipakai
+    // Nama file diacak untuk keamanan, ekstensi asli dipertahankan
     filename: (req, file, cb) =>
       cb(
         null,
@@ -48,8 +49,7 @@ const upload = multer({
       : cb(new Error("TIPE_FILE")),
 });
 
-// Terima 1 file di field "bukti". Kalau request akhirnya ditolak (status >= 400),
-// file yang sudah terlanjur tersimpan dihapus supaya tidak jadi sampah.
+// Middleware untuk menangani upload file dan membersihkan file jika request gagal
 const uploadBukti = (req, res, next) => {
   res.on("finish", () => {
     if (res.statusCode >= 400 && req.file) {
@@ -71,8 +71,7 @@ const uploadBukti = (req, res, next) => {
   });
 };
 
-// ---------- Pembatasan role ----------
-// Membutuhkan verifyToken lebih dulu, yang mengisi req.user dari isi JWT: { id, email, role }
+// Middleware untuk membatasi akses berdasarkan peran (role)
 const requireRole =
   (...roles) =>
   (req, res, next) => {
@@ -85,11 +84,12 @@ const requireRole =
   };
 
 const STAFF = ["GURU_BK", "PSIKOLOG", "ADMIN"];
+const MANAGER = ["GURU_BK", "ADMIN"];
 
-// Publik: pelacakan laporan dengan kode tiket (tanpa data pelapor)
+// Publik: Melacak laporan berdasarkan kode tiket
 router.get("/tiket/:kodeTiket", getLaporanByTiket);
 
-// Siswa (wajib login): buat laporan (+ bukti opsional) & lihat riwayat laporan sendiri
+// Siswa (wajib login): Membuat, melihat, dan memperbarui laporan sendiri
 router.post(
   "/",
   verifyToken,
@@ -97,13 +97,25 @@ router.post(
   uploadBukti,
   createLaporan
 );
-// Siswa edit laporan miliknya
-router.put("/:id", verifyToken, requireRole("SISWA"), updateLaporanSiswa);
 router.get("/saya", verifyToken, requireRole("SISWA"), getLaporanSaya);
-router.patch("/:id/archive", verifyToken, requireRole(...STAFF), archiveLaporan);
-router.patch("/:id/alihkan", verifyToken, requireRole(...STAFF), alihkanKePsikolog);
+router.put("/:id", verifyToken, requireRole("SISWA"), updateLaporanSiswa);
 
-// Guru BK / Admin: daftar, detail lengkap, dan ubah status laporan
+// Guru BK / Admin: Mengelola daftar psikolog, pengalihan laporan, dan arsip
+router.get("/psikolog", verifyToken, requireRole(...MANAGER), getDaftarPsikolog);
+router.patch(
+  "/:id/alihkan",
+  verifyToken,
+  requireRole(...MANAGER),
+  alihkanKePsikolog
+);
+router.patch(
+  "/:id/archive",
+  verifyToken,
+  requireRole(...MANAGER),
+  archiveLaporan
+);
+
+// Staf (Guru BK / Psikolog / Admin): Melihat daftar, detail, dan mengubah status laporan
 router.get("/", verifyToken, requireRole(...STAFF), getAllLaporan);
 router.get(
   "/detail/:kodeTiket",
@@ -117,6 +129,5 @@ router.patch(
   requireRole(...STAFF),
   updateStatusLaporan
 );
-
 
 module.exports = router;

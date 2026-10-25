@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Shield,
@@ -27,8 +28,10 @@ import ShinyText from "../components/reactbits/ShinyText";
 import BlurText from "../components/reactbits/BlurText";
 import CountUp from "../components/reactbits/CountUp";
 import SpotlightCard from "../components/reactbits/SpotlightCard";
+import ArtikelCarousel from "../components/ArtikelCarousel";
 
-// Assets
+// Services & Assets
+import { api, SERVER_URL } from "../services/api";
 import { images } from "../assets";
 
 // --- Design Tokens ---
@@ -36,9 +39,8 @@ const COLOR_PRIMARY = "#023346";
 const COLOR_TERTIARY = "#3191A0";
 const ANIMATION_EASE = [0.22, 1, 0.36, 1];
 
-// Endpoint backend
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
-const AI_ENDPOINT = `${API_BASE_URL}/api/ai/ask`;
+// Endpoint AI 
+const AI_ENDPOINT = `${SERVER_URL}/api/ai/ask`;
 
 // Kirim pesan ke backend, backend yang memanggil Gemini AI
 const handleSendAIMessage = async (userMessage) => {
@@ -57,13 +59,22 @@ const handleSendAIMessage = async (userMessage) => {
       throw new Error(data.error || "Gagal mendapatkan respon dari AI");
     }
 
-    // data.reply berisi balasan teks dari Gemini AI di Backend
     return data.reply;
   } catch (error) {
     console.error("AI Chatbot Error:", error);
     throw error;
   }
 };
+
+// Format tanggal artikel dari server (ISO)
+const formatArticleDate = (iso) =>
+  iso
+    ? new Date(iso).toLocaleDateString("id-ID", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    : "";
 
 // --- Static Data ---
 const FEATURES = [
@@ -131,27 +142,6 @@ const WORKFLOW_STEPS = [
   },
 ];
 
-const ARTICLES = [
-  {
-    cat: "Cyberbullying",
-    title: "Mengenali tanda-tanda cyberbullying dan cara menghadapinya",
-    desc: "Pelajari cara menjaga batasan digital dan mendokumentasikan bukti dengan aman.",
-    date: "12 Maret 2025",
-  },
-  {
-    cat: "Kesehatan mental",
-    title: "Menjaga kesehatan mental di tengah tekanan sekolah",
-    desc: "Teknik pernapasan, manajemen stres, dan kapan saatnya meminta bantuan ahli.",
-    date: "12 Oktober 2025",
-  },
-  {
-    cat: "Hak siswa",
-    title: "Hak perlindungan hukum siswa: panduan praktis",
-    desc: "Aturan yang menjamin kamu berhak belajar tanpa intimidasi.",
-    date: "3 Maret 2026",
-  },
-];
-
 const FAQS = [
   {
     q: "Apakah laporan saya benar-benar anonim?",
@@ -181,7 +171,6 @@ const STATS = [
   { to: 100, suffix: "%", label: "gratis untuk siswa", sep: "" },
 ];
 
-// --- Sub-Komponen Floating AI Chat Widget ---
 function FloatingAIChat() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
@@ -212,9 +201,7 @@ function FloatingAIChat() {
     setIsLoading(true);
 
     try {
-      // Panggil backend (yang meneruskan ke Gemini AI)
       const aiReply = await handleSendAIMessage(userText);
-
       setMessages((prev) => [...prev, { sender: "ai", text: aiReply }]);
     } catch (error) {
       setMessages((prev) => [
@@ -243,7 +230,6 @@ function FloatingAIChat() {
             transition={{ duration: 0.2, ease: ANIMATION_EASE }}
             className="w-85 sm:w-95 h-120 bg-white rounded-3xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden"
           >
-            {/* Header Chat */}
             <div
               className="p-4 text-white flex items-center justify-between shrink-0"
               style={{ background: COLOR_PRIMARY }}
@@ -271,7 +257,6 @@ function FloatingAIChat() {
               </button>
             </div>
 
-            {/* Message Body */}
             <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-[#F4F9F9] text-sm">
               {messages.map((msg, idx) => (
                 <div
@@ -308,7 +293,6 @@ function FloatingAIChat() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Input Form */}
             <form
               onSubmit={handleSend}
               className="p-3 bg-white border-t border-slate-200 flex items-center gap-2 shrink-0"
@@ -334,7 +318,6 @@ function FloatingAIChat() {
         )}
       </AnimatePresence>
 
-      {/* Floating Toggle Button (disembunyikan saat chat terbuka) */}
       {!isOpen && (
         <motion.button
           initial={{ opacity: 0, scale: 0.85 }}
@@ -353,18 +336,44 @@ function FloatingAIChat() {
   );
 }
 
-// --- Main Component ---
 export default function LandingPage() {
+  const navigate = useNavigate();
   const [ticket, setTicket] = useState("");
   const [openFaq, setOpenFaq] = useState(0);
 
-  // Redireksi ke halaman pelacakan laporan berdasarkan kode tiket
+  // Bacaan dari database (dikelola admin lewat halaman Kelola Artikel)
+  const [articles, setArticles] = useState([]);
+  const [articlesStatus, setArticlesStatus] = useState("loading"); // loading | ready | error
+
+  useEffect(() => {
+    let cancelled = false;
+
+    api
+      .getArtikelList(50)
+      .then((res) => {
+        if (cancelled) return;
+        if (res.error) {
+          setArticlesStatus("error");
+          return;
+        }
+        setArticles(res.articles ?? []);
+        setArticlesStatus("ready");
+      })
+      .catch(() => {
+        if (!cancelled) setArticlesStatus("error");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const handleTrackSubmit = (e) => {
     e.preventDefault();
-    const trimmedTicket = ticket.trim();
+    const trimmedTicket = ticket.trim().toUpperCase();
     if (!trimmedTicket) return;
 
-    window.location.href = `/lacak?kode=${encodeURIComponent(trimmedTicket)}`;
+    navigate(`/riwayat-laporan?kode=${encodeURIComponent(trimmedTicket)}`);
   };
 
   const toggleFaq = (index) => {
@@ -376,7 +385,6 @@ export default function LandingPage() {
       className="min-h-screen flex flex-col bg-[#F4F9F9] text-slate-800 selection:bg-cyan-100 overflow-x-hidden relative"
       style={{ fontFamily: "'Plus Jakarta Sans', 'Poppins', sans-serif" }}
     >
-      {/* Dynamic Font & Smooth Scroll Styles */}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
         html { scroll-behavior: smooth; }
@@ -390,7 +398,6 @@ export default function LandingPage() {
         id="beranda"
         className="relative pt-32 pb-20 md:pt-40 md:pb-28 overflow-hidden"
       >
-        {/* Background Decorative Blurs */}
         <div
           aria-hidden="true"
           className="absolute -top-40 -left-32 w-130 h-130 rounded-full bg-tertiary/15 blur-3xl pointer-events-none"
@@ -419,7 +426,6 @@ export default function LandingPage() {
               konselor profesional siap mendampingi.
             </p>
 
-            {/* Form Pelacakan Tiket */}
             <form
               onSubmit={handleTrackSubmit}
               className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 max-w-xl rounded-3xl sm:rounded-full bg-white p-2 border border-slate-200 shadow-xl shadow-cyan-900/10 transition focus-within:border-tertiary focus-within:ring-4 focus-within:ring-cyan-100"
@@ -470,7 +476,6 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Hero Illustration */}
           <div className="relative">
             <motion.img
               src={images?.hero}
@@ -486,7 +491,6 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* Counter Stats */}
         <div className="relative max-w-4xl mx-auto px-6 mt-16 grid grid-cols-3 gap-4 text-center">
           {STATS.map((stat) => (
             <div key={stat.label}>
@@ -625,52 +629,42 @@ export default function LandingPage() {
       </section>
 
       {/* ================= ARTIKEL SECTION ================= */}
-      <section id="artikel" className="py-24 bg-[#F4F9F9]">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="max-w-2xl mb-12 space-y-3">
-            <h2
-              className="text-3xl md:text-4xl font-bold"
-              style={{ color: COLOR_PRIMARY }}
-            >
-              Bacaan yang membantumu tenang
-            </h2>
-            <p className="text-slate-600">
-              Panduan singkat untuk memahami dan melewati situasi sulit.
-            </p>
-          </div>
+<section id="artikel" className="py-24 bg-[#F4F9F9]">
+  <div className="max-w-7xl mx-auto px-6">
+    <motion.div
+      initial={{ opacity: 0, y: 24 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-80px" }}
+      transition={{ duration: 0.6, ease: ANIMATION_EASE }}
+      className="max-w-2xl mb-12 space-y-3"
+    >
+      <h2 className="text-3xl md:text-4xl font-bold" style={{ color: COLOR_PRIMARY }}>
+        Bacaan yang membantumu tenang
+      </h2>
+      <p className="text-slate-600">
+        Panduan singkat untuk memahami dan melewati situasi sulit.
+      </p>
+    </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-5">
-            {ARTICLES.map((article) => (
-              <a
-                key={article.title}
-                href="#"
-                className="group rounded-3xl bg-white border border-slate-200 p-7 flex flex-col gap-3 transition hover:shadow-xl hover:shadow-cyan-900/10 hover:-translate-y-1"
-              >
-                <span className="self-start rounded-full bg-amber-50 text-amber-700 text-xs font-semibold px-3 py-1">
-                  {article.cat}
-                </span>
-                <h3
-                  className="font-bold leading-snug"
-                  style={{ color: COLOR_PRIMARY }}
-                >
-                  {article.title}
-                </h3>
-                <p className="text-sm text-slate-600 leading-relaxed flex-1">
-                  {article.desc}
-                </p>
-                <div className="flex items-center justify-between text-xs text-slate-500 pt-2">
-                  {article.date}
-                  <ArrowRight
-                    size={15}
-                    style={{ color: COLOR_TERTIARY }}
-                    className="transition group-hover:translate-x-1"
-                  />
-                </div>
-              </a>
-            ))}
-          </div>
-        </div>
-      </section>
+    {articlesStatus === "loading" ? (
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-3" aria-busy="true" aria-label="Memuat bacaan">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="h-56 animate-pulse rounded-3xl border border-slate-200 bg-white" />
+        ))}
+      </div>
+    ) : articlesStatus === "error" ? (
+      <p className="rounded-3xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
+        Bacaan belum bisa dimuat. Coba muat ulang halaman sebentar lagi.
+      </p>
+    ) : articles.length === 0 ? (
+      <p className="rounded-3xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
+        Belum ada bacaan yang diterbitkan.
+      </p>
+    ) : (
+      <ArtikelCarousel articles={articles} />
+    )}
+  </div>
+</section>
 
       {/* ================= BANTUAN DARURAT BANNER ================= */}
       <section className="px-6 pb-20 bg-[#F4F9F9]">
@@ -780,7 +774,6 @@ export default function LandingPage() {
 
       <Footer />
 
-      {/* ================= FLOATING AI CHAT WIDGET ================= */}
       <FloatingAIChat />
     </div>
   );

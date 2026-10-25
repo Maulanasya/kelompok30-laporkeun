@@ -139,15 +139,19 @@ model Chat {
 }
 
 model KontenEdukasi {
-  id               String   @id @default(uuid())
+  id               String    @id @default(uuid())
   judul            String
   ringkasan        String
   isi              String
   gambarSampul     String?
   tanggalPublikasi DateTime?
-  isPublished      Boolean  @default(false)
+  isPublished      Boolean   @default(false)
   penulisId        String
-  penulis          User     @relation(fields: [penulisId], references: [id])
+  penulis          User      @relation(fields: [penulisId], references: [id])
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @default(now()) @updatedAt
+
+  @@index([isPublished, tanggalPublikasi])
 }
 
 model PasswordReset {

@@ -6,11 +6,11 @@ const COLOR_PRIMARY = "#0F4C5C";
 const COLOR_TERTIARY = "#1597A8";
 const ANIMATION_EASE = [0.22, 1, 0.36, 1];
 
+// Opsi boleh berupa string ("X-1") atau objek { value, label } ({ value: "GURU_BK", label: "Guru BK" }).
+const toOption = (o) => (typeof o === "string" ? { value: o, label: o } : o);
+
 /**
  * Dropdown kustom.
- * groups: [{ label: "Kelas X", options: ["X-1", "X-2"] }, ...]
- * onChange dipanggil dengan bentuk { target: { name, value } }
- * sehingga bisa langsung memakai handleChange yang sama dengan <input>.
  */
 export default function Select({
   id,
@@ -33,10 +33,13 @@ export default function Select({
     let i = 0;
     return groups.map((g) => ({
       label: g.label,
-      items: g.options.map((o) => ({ value: o, index: i++ })),
+      items: g.options.map((o) => ({ ...toOption(o), index: i++ })),
     }));
   }, [groups]);
-  const flat = useMemo(() => indexed.flatMap((g) => g.items.map((x) => x.value)), [indexed]);
+  const flat = useMemo(() => indexed.flatMap((g) => g.items), [indexed]);
+
+  // Teks yang tampil di tombol: label opsi terpilih, bukan value mentah
+  const selectedLabel = flat.find((o) => o.value === value)?.label;
 
   // Tutup saat klik di luar
   useEffect(() => {
@@ -55,7 +58,7 @@ export default function Select({
   }, [active, open, listId]);
 
   const openList = () => {
-    setActive(Math.max(flat.indexOf(value), 0));
+    setActive(Math.max(flat.findIndex((o) => o.value === value), 0));
     setOpen(true);
   };
 
@@ -92,10 +95,11 @@ export default function Select({
       case "Enter":
       case " ":
         e.preventDefault();
-        if (active >= 0) choose(flat[active]);
+        if (active >= 0) choose(flat[active].value);
         break;
       case "Escape":
         e.preventDefault();
+        e.stopPropagation();
         setOpen(false);
         break;
       case "Tab":
@@ -126,11 +130,11 @@ export default function Select({
         aria-describedby={describedBy}
         onClick={() => (open ? setOpen(false) : openList())}
         onKeyDown={onKeyDown}
-        className={`w-full rounded-full bg-white border pl-12 pr-12 py-3.5 text-sm text-left outline-none transition cursor-pointer focus:border-[#1597A8] focus:ring-4 focus:ring-cyan-100 ${
-          invalid ? "border-red-400" : open ? "border-[#1597A8] ring-4 ring-cyan-100" : "border-slate-200"
-        } ${value ? "text-slate-800" : "text-slate-400"}`}
+        className={`w-full rounded-full bg-white border ${Icon ? "pl-12" : "pl-4"} pr-12 py-3.5 text-sm text-left outline-none transition cursor-pointer focus:border-tertiary focus:ring-4 focus:ring-cyan-100 ${
+          invalid ? "border-red-400" : open ? "border-tertiary ring-4 ring-cyan-100" : "border-slate-200"
+        } ${selectedLabel ? "text-slate-800" : "text-slate-400"}`}
       >
-        {value || placeholder}
+        {selectedLabel || placeholder}
       </button>
 
       <ChevronDown
@@ -149,18 +153,20 @@ export default function Select({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.98 }}
             transition={{ duration: 0.18, ease: ANIMATION_EASE }}
-            onMouseDown={(e) => e.preventDefault()} // jaga fokus tetap di tombol
+            onMouseDown={(e) => e.preventDefault()} 
             className="absolute z-20 mt-2 w-full max-h-64 overflow-y-auto rounded-2xl bg-white border border-slate-200 shadow-xl shadow-cyan-900/10 p-2"
           >
-            {indexed.map((group) => (
-              <React.Fragment key={group.label}>
-                <li
-                  role="presentation"
-                  className="px-3 pt-2 pb-1 text-xs font-semibold text-slate-400"
-                >
-                  {group.label}
-                </li>
-                {group.items.map(({ value: v, index }) => {
+            {indexed.map((group, gi) => (
+              <React.Fragment key={group.label ?? gi}>
+                {group.label && (
+                  <li
+                    role="presentation"
+                    className="px-3 pt-2 pb-1 text-xs font-semibold text-slate-400"
+                  >
+                    {group.label}
+                  </li>
+                )}
+                {group.items.map(({ value: v, label, index }) => {
                   const selected = v === value;
                   return (
                     <li
@@ -175,7 +181,7 @@ export default function Select({
                       } ${selected ? "font-semibold" : "text-slate-700"}`}
                       style={selected ? { color: COLOR_PRIMARY } : undefined}
                     >
-                      {v}
+                      {label}
                       {selected && <Check size={16} style={{ color: COLOR_TERTIARY }} />}
                     </li>
                   );

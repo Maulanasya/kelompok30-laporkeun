@@ -46,7 +46,7 @@ export default function StatusTimeline({ status = "PENDING" }) {
             />
 
             {index !== STEPS.length - 1 && (
-              <div className="absolute left-[5px] top-4 h-full w-px bg-neutral-dark/40" />
+              <div className="absolute left-1.25 top-4 h-full w-px bg-neutral-dark/40" />
             )}
 
             <h3 className={`text-[10px] font-semibold ${isCurrent ? "text-primary" : "text-primary/80"}`}>

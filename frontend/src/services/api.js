@@ -1,97 +1,160 @@
 import { getToken, clearUser } from "../utils/auth";
 
-const API_BASE_URL = "http://localhost:5001/api";
+const API_HOST = import.meta.env.VITE_SERVER_URL || "http://localhost:5001";
 
-// Pembungkus fetch: otomatis kirim token, dukung JSON dan FormData,
-// dan keluarkan pengguna kalau server menolak token (401).
-async function request(path, { method = "GET", body, auth = true, redirectOn401 = true } = {}) {
-  const headers = {};
+export const SERVER_URL = API_HOST;
+export const API_BASE_URL = `${API_HOST}/api`;
+
+const getAuthHeader = () => {
   const token = getToken();
-  if (auth && token) headers.Authorization = `Bearer ${token}`;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
 
-  let payload;
-  if (body instanceof FormData) {
-    payload = body; // browser mengisi Content-Type + boundary sendiri
-  } else if (body !== undefined) {
-    headers["Content-Type"] = "application/json";
-    payload = JSON.stringify(body);
-  }
+const toQuery = (params) =>
+  params && Object.keys(params).length
+    ? `?${new URLSearchParams(params).toString()}`
+    : "";
 
-  const res = await fetch(`${API_BASE_URL}${path}`, { method, headers, body: payload });
-  const data = await res.json().catch(() => ({}));
+const handleUnauthorized = (res, auth) => {
+  if (res.status !== 401 || !auth || !getToken()) return;
+  clearUser();
+  if (window.location.pathname !== "/login") {
+    window.location.href = "/login";
+  }
+};
 
-  if (res.status === 401 && token && redirectOn401) {
-    clearUser();
-    window.location.assign("/login");
+const buildRequest = ({ method = "GET", body, auth = true }) => {
+  const isForm = typeof FormData !== "undefined" && body instanceof FormData;
+  return {
+    method,
+    headers: {
+      // Untuk FormData, Content-Type tidak boleh diisi manual agar browser menambahkan boundary
+      ...(body && !isForm ? { "Content-Type": "application/json" } : {}),
+      ...(auth ? getAuthHeader() : {}),
+    },
+    body: body ? (isForm ? body : JSON.stringify(body)) : undefined,
+  };
+};
+
+const parseJson = async (res) => {
+  try {
+    return await res.json();
+  } catch {
+    return null;
   }
-  if (!res.ok && !data.error) {
-    data.error = data.message || "Permintaan gagal.";
-  }
-  return data;
-}
+};
 
 export const api = {
-  // 1. Autentikasi
+  request: async (path, { method = "GET", body, auth = true } = {}) => {
+    const res = await fetch(
+      `${API_BASE_URL}${path}`,
+      buildRequest({ method, body, auth })
+    );
+    const json = await parseJson(res);
+
+    if (!res.ok) {
+      handleUnauthorized(res, auth);
+      throw new Error(json?.error || json?.message || "Terjadi kesalahan pada server.");
+    }
+    return json;
+  },
+
+  // Mengembalikan JSON respons secara langsung meskipun terjadi error server (digunakan untuk login/register)
+  requestSoft: async (path, { method = "GET", body, auth = true } = {}) => {
+    const res = await fetch(
+      `${API_BASE_URL}${path}`,
+      buildRequest({ method, body, auth })
+    );
+    const json = (await parseJson(res)) || {};
+
+    if (!res.ok) {
+      handleUnauthorized(res, auth);
+      return {
+        ...json,
+        error: json.error || json.message || "Terjadi kesalahan pada server.",
+        status: res.status,
+      };
+    }
+    return json;
+  },
+
+  // ---------- Autentikasi ----------
   login: (identifier, password) =>
-    request("/auth/login", {
+    api.requestSoft("/auth/login", {
       method: "POST",
       body: { identifier, password },
       auth: false,
-      redirectOn401: false,
     }),
 
   register: (userData) =>
-    request("/auth/register", {
-      method: "POST",
-      body: userData,
-      auth: false,
-      redirectOn401: false,
-    }),
+    api.requestSoft("/auth/register", { method: "POST", body: userData, auth: false }),
 
-  me: () => request("/auth/me"),
+  me: () => api.request("/auth/me"),
 
-  // Lupa password (3 langkah)
   forgotPassword: (email) =>
-    request("/auth/forgot-password", {
-      method: "POST",
-      body: { email },
-      auth: false,
-      redirectOn401: false,
-    }),
+    api.requestSoft("/auth/forgot-password", { method: "POST", body: { email }, auth: false }),
+  verifyCode: (data) =>
+    api.requestSoft("/auth/verify-code", { method: "POST", body: data, auth: false }),
+  resetPassword: (data) =>
+    api.requestSoft("/auth/reset-password", { method: "POST", body: data, auth: false }),
 
-  verifyCode: (email, code) =>
-    request("/auth/verify-code", {
-      method: "POST",
-      body: { email, code },
-      auth: false,
-      redirectOn401: false,
-    }),
+  // ---------- Profil ----------
+  getProfile: () => api.request("/profile"),
+  updateProfile: (data) => api.request("/profile", { method: "PUT", body: data }),
+  changePassword: (data) => api.request("/profile/password", { method: "PUT", body: data }),
 
-  resetPassword: (resetToken, password) =>
-    request("/auth/reset-password", {
-      method: "POST",
-      body: { resetToken, password },
-      auth: false,
-      redirectOn401: false,
-    }),
-
-  // 2. Laporan
-  // laporanData boleh berupa FormData (dengan file bukti di field "bukti") atau objek biasa
-  kirimLaporan: (laporanData) =>
-    request("/laporan", { method: "POST", body: laporanData }),
-
+  // ---------- Laporan ----------
+  kirimLaporan: (data) => api.request("/laporan", { method: "POST", body: data }),
+  
   getLaporanByTiket: (kodeTiket) =>
-    request(`/laporan/tiket/${kodeTiket}`, { auth: false }),
+    api.request(`/laporan/tiket/${kodeTiket}`, { auth: false }),
 
-  getLaporanSaya: () => request("/laporan/saya"),
+  getDetailLaporan: (kodeTiket) =>
+    api.request(`/laporan/detail/${encodeURIComponent(kodeTiket)}`),
 
-  // Khusus guru BK
-  getAllLaporan: () => request("/laporan"),
-  getDetailLaporan: (kodeTiket) => request(`/laporan/detail/${kodeTiket}`),
-  updateStatusLaporan: (id, payload) =>
-    request(`/laporan/${id}/status`, { method: "PATCH", body: payload }),
+  getLaporanSaya: () => api.request("/laporan/saya"),
+  getAllLaporan: () => api.request("/laporan"),
 
-  // 3. Riwayat Chat Konsultasi
-  getChatHistory: (kodeTiket) => request(`/chat/${kodeTiket}`),
-  request: (path, opts) => request(path, opts),
+  // ---------- Chat ----------
+  getChatHistory: (kodeTiket) => api.request(`/chat/${kodeTiket}`),
+  getChatList: (params) => api.request(`/chat${toQuery(params)}`),
+
+  // ---------- AI ----------
+  askAI: (message) => api.request("/ai/chat", { method: "POST", body: { message } }),
+
+  // ---------- Artikel (publik) ----------
+  getArtikelList: (limit) =>
+    api.request(`/artikel${limit ? `?limit=${limit}` : ""}`, { auth: false }),
+  getArtikelById: (id) => api.request(`/artikel/${id}`, { auth: false }),
+
+  // ---------- Admin ----------
+  getAdminStats: () => api.request("/admin/stats"),
+
+  // Akun
+  getAdminUsers: () => api.request("/admin/users"),
+  createAdminUser: (data) => api.request("/admin/users", { method: "POST", body: data }),
+  setUserActive: (id, isActive) =>
+    api.request(`/admin/users/${id}/status`, { method: "PATCH", body: { isActive } }),
+
+  // Riwayat penanganan
+  getAdminRiwayat: () => api.request("/admin/riwayat"),
+
+  // Artikel Admin
+  getAdminArtikel: () => api.requestSoft("/admin/artikel"),
+  createAdminArtikel: (data) =>
+    api.requestSoft("/admin/artikel", { method: "POST", body: data }),
+  updateAdminArtikel: (id, data) =>
+    api.requestSoft(`/admin/artikel/${id}`, { method: "PUT", body: data }),
+  setAdminArtikelPublished: (id, isPublished) =>
+    api.requestSoft(`/admin/artikel/${id}/publish`, {
+      method: "PATCH",
+      body: { isPublished },
+    }),
+  deleteAdminArtikel: (id) =>
+    api.requestSoft(`/admin/artikel/${id}`, { method: "DELETE" }),
+
+  markChatRead: (kodeTiket) =>
+    api.request(`/chat/${encodeURIComponent(kodeTiket)}/read`, {
+      method: "PATCH",
+    }),
 };
