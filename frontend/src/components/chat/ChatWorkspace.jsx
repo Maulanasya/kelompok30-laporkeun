@@ -45,7 +45,7 @@ export default function ChatWorkspace({
       // Sertakan query lawan jika ada dari URL
       const queryParams = urlLawan ? { lawan: urlLawan } : undefined;
       const res = await api.getChatList(queryParams);
-      
+
       if (res.error) {
         setListError(res.error);
         return;
@@ -113,7 +113,7 @@ export default function ChatWorkspace({
 
   if (loadingList) {
     return (
-      <Panel className="flex h-[400px] items-center justify-center text-slate-500">
+      <Panel className="flex h-100 items-center justify-center text-slate-500">
         Memuat daftar percakapan...
       </Panel>
     );
@@ -193,6 +193,7 @@ export default function ChatWorkspace({
                 text={msg.text}
                 senderName={msg.senderName}
                 time={msg.time}
+                createdAt={msg.createdAt}
                 sudahBaca={msg.sudahBaca}
               />
             ))
