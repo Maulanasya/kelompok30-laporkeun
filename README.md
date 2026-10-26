@@ -16,7 +16,7 @@ Proyek Kelompok 30.
 
 - Frontend: React, Vite, Tailwind CSS v4
 - Font: Poppins
-- Backend: _belum ditentukan_
+- Backend: belum ditentukan
 
 ## Struktur Repo
 
@@ -30,18 +30,28 @@ laporkeunkel30/
 ## Menjalankan Frontend
 
 ```bash
-git clone https://github.com/USERNAME/kelompok30-laporkeun.git atau
-git clone -b ui-korban https://github.com/Maulanasya/kelompok30-laporkeun.git (agar yang terambil langsung branch ui-korban)
-jika repositori sudah di-clone sebelumnya
-pindah branch menggunakan
+git clone https://github.com/USERNAME/kelompok30-laporkeun.git
 git fetch origin
-git checkout ui-korban
+git checkout nama-branch
+
 cd kelompok30-laporkeun/frontend
 copy .env.example .env
 npm install
 npm install motion
 npm run dev
 ```
+
+## Menjalankan Backend
+
+```bash
+cd kelompok30-laporkeun/backend
+npm install
+npx prisma generate
+copy .env.example .env
+npm run dev
+npx prisma studio
+```
+
 
 Buka `http://localhost:5173`. Isi nilai variabel di `.env` sesuai kebutuhan.
 
