@@ -38,7 +38,7 @@ app.use(cors({
 }));
 
 // PENTING: Menangani preflight request (OPTIONS) agar tidak diblokir Vercel
-app.options('*', cors());
+app.options(/(.*)/, cors());
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
