@@ -12,7 +12,7 @@ const {
 } = require("../middlewares/authMiddleware");
 
 router.get("/", verifyToken, getProfile);
-router.get("/me", verifyToken, getProfile); 
+router.get("/profile/me", verifyToken, getProfile); 
 router.put("/", verifyToken, updateProfile);
 router.post("/change-password", verifyToken, changePassword); 
 
