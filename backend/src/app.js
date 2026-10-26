@@ -17,7 +17,7 @@ const app = express();
 // Daftar origin yang diizinkan
 const allowedOrigins = [
   "http://localhost:5173", // Frontend lokal Anda
-  "https://kelompok30-laporkeun.vercel.app/" // Backend Vercel Anda
+  "https://kelompok30-laporkeun.vercel.app"
   // Tambahkan URL frontend Vercel Anda di sini jika frontend-nya sudah dideploy, contoh:
   // "https://kelompok30-laporkeun.vercel.app"
 ];
