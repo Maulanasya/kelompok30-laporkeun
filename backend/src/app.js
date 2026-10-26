@@ -38,9 +38,10 @@ app.use("/api/admin", adminRoutes);
 
 // Konfigurasi server Socket.IO
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
+// const CLIENT_URL = "https://kelompok30-laporkeun-backend.vercel.app";
 
 app.use(cors({ 
-  origin: CLIENT_URL,
+  origin: [CLIENT_URL, "https://kelompok30-laporkeun-backend.vercel.app"],
   credentials: true 
 }));
 
