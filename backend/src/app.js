@@ -37,9 +37,16 @@ app.use("/api/admin/artikel", adminArtikelRoutes);
 app.use("/api/admin", adminRoutes);
 
 // Konfigurasi server Socket.IO
+const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
+
+app.use(cors({ 
+  origin: CLIENT_URL,
+  credentials: true 
+}));
+
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin: CLIENT_URL,
     methods: ["GET", "POST"],
     credentials: true,
   },
