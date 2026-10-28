@@ -26,7 +26,7 @@ import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 import BlurText from "../components/reactbits/BlurText";
 
-const API_BASE_URL = "http://localhost:5001/api";
+const API_BASE_URL = "https://kelompok30-laporkeun-backend.vercel.app";
 
 // --- Design Tokens & Mappings ---
 const COLOR_PRIMARY = "#0F4C5C";

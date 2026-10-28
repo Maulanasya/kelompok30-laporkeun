@@ -139,7 +139,7 @@ export default function PsikologDetailSesi() {
               <ul className="space-y-2">
                 {report.bukti.map((b) => (
                   <li key={b.id} className="rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-700">
-                    <a href={`http://localhost:5001/${b.filePath}`} target="_blank" rel="noreferrer" className="text-tertiary hover:underline">
+                    <a href={`https://kelompok30-laporkeun-backend.vercel.app/${b.filePath}`} target="_blank" rel="noreferrer" className="text-tertiary hover:underline">
                       {b.filePath.split("/").pop()}
                     </a>
                   </li>

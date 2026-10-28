@@ -3,15 +3,17 @@ import { Check, CheckCheck } from "lucide-react";
 
 const EASE_OUT_TRANSITION = [0.16, 1, 0.3, 1];
 
-// Format waktu dari ISO string, timestamp, objek Date, atau string waktu mentah
+// Format waktu dari ISO string, timestamp, atau objek Date.
+// Selalu memakai zona waktu WIB supaya konsisten di semua perangkat.
 export const formatTime = (value) => {
   if (!value) return "";
   const d = new Date(value);
-  if (isNaN(d.getTime())) return String(value);
+  if (isNaN(d.getTime())) return "";
   return d.toLocaleTimeString("id-ID", {
     hour: "2-digit",
     minute: "2-digit",
-    hour12: false,
+    hourCycle: "h23",
+    timeZone: "Asia/Jakarta",
   });
 };
 
@@ -27,8 +29,10 @@ export default function ChatBubble({
   const isUser =
     isMe !== undefined ? Boolean(isMe) : from === "user" || from === "me";
 
-  // Prioritaskan createdAt (data mentah), fallback ke time
-  const jam = formatTime(createdAt || time);
+  // Pakai createdAt (data mentah) jika ada.
+  // Jika tidak ada, pakai `time` apa adanya (sudah berupa string jam jadi,
+  // jangan dilempar ke new Date() lagi).
+  const jam = createdAt ? formatTime(createdAt) : time || "";
 
   return (
     <motion.div

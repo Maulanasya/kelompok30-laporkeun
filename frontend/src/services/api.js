@@ -1,6 +1,8 @@
 import { getToken, clearUser } from "../utils/auth";
 
-const API_HOST = import.meta.env.VITE_SERVER_URL || "http://localhost:5001";
+// const API_HOST = import.meta.env.VITE_SERVER_URL || "http://localhost:5001";
+const API_HOST = import.meta.env.VITE_API_URL || "https://kelompok30-laporkeun-backend.vercel.app";
+
 
 export const SERVER_URL = API_HOST;
 export const API_BASE_URL = `${API_HOST}/api`;

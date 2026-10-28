@@ -7,7 +7,7 @@ import UploadBukti from "./UploadBukti";
 import IdentitasRadio from "./IdentitasRadio";
 import { getUser } from "../../utils/auth";
 
-const API_URL = `${import.meta.env.VITE_API_URL || "http://localhost:5001"}/api/laporan`;
+const API_URL = `${import.meta.env.VITE_API_URL || "https://kelompok30-laporkeun-backend.vercel.app"}/api/laporan`;
 
 const getToken = () =>
   localStorage.getItem("token") || sessionStorage.getItem("token") || "";

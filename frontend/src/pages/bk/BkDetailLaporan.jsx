@@ -278,7 +278,7 @@ export default function BkDetailLaporan() {
                     className="rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-700"
                   >
                     <a
-                      href={`http://localhost:5001/${b.filePath}`}
+                      href={`https://kelompok30-laporkeun-backend.vercel.app/${b.filePath}`}
                       target="_blank"
                       rel="noreferrer"
                       className="text-tertiary hover:underline"
