@@ -47,6 +47,7 @@ npm run dev
 cd kelompok30-laporkeun/backend
 npm install
 npx prisma generate
+npm install axios
 copy .env.example .env
 npm run dev
 npx prisma studio

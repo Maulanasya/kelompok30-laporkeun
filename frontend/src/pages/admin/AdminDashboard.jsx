@@ -10,6 +10,7 @@ import {
   ChevronRight,
   ShieldCheck,
   Loader2,
+  RefreshCw, // Tambahkan icon Refresh
 } from "lucide-react";
 
 import BkShell, { Panel } from "../../components/layout/BkShell";
@@ -17,7 +18,8 @@ import useAdminStats from "../../hooks/useAdminStats";
 import { LAPORAN_STATUS } from "../../data/adminData";
 
 export default function AdminDashboard() {
-  const { stats, loading, error, connected } = useAdminStats();
+  // ✅ Ambil fungsi 'refresh'
+  const { stats, loading, error, refresh } = useAdminStats();
 
   if (loading && !stats) {
     return (
@@ -29,7 +31,6 @@ export default function AdminDashboard() {
     );
   }
 
-  // Pemuatan selesai tetapi tidak ada data (mis. request gagal di percobaan pertama)
   if (!stats) {
     return (
       <BkShell title="Ringkasan" subtitle="Statistik tidak tersedia">
@@ -42,13 +43,9 @@ export default function AdminDashboard() {
 
   const { perStatus, perKategori, akunAktif, artikelTerbit } = stats;
 
-  // Total tidak dikirim server, jadi dihitung dari jumlah semua status
   const total = Object.values(perStatus).reduce((a, b) => a + b, 0);
-
-  // Minimal 1 agar lebar bar tidak menjadi NaN (pembagian dengan nol) saat semua kategori bernilai 0
   const maxKategori = Math.max(1, ...perKategori.map((k) => k.jumlah));
 
-  // Label status memakai LAPORAN_STATUS agar seragam dengan halaman lain, dengan teks cadangan jika kuncinya belum ada
   const cards = [
     { label: "Total laporan", value: total, icon: FileText },
     { label: LAPORAN_STATUS?.PENDING ?? "Menunggu ditinjau", value: perStatus.PENDING, icon: Clock },
@@ -58,24 +55,9 @@ export default function AdminDashboard() {
   ];
 
   const shortcuts = [
-    {
-      to: "/admin/akun",
-      icon: Users,
-      title: "Kelola akun",
-      desc: `${akunAktif} akun aktif`,
-    },
-    {
-      to: "/admin/artikel",
-      icon: Newspaper,
-      title: "Kelola artikel",
-      desc: `${artikelTerbit} artikel terbit`,
-    },
-    {
-      to: "/admin/riwayat",
-      icon: FileText,
-      title: "Riwayat penanganan",
-      desc: "Jejak perubahan status laporan",
-    },
+    { to: "/admin/akun", icon: Users, title: "Kelola akun", desc: `${akunAktif} akun aktif` },
+    { to: "/admin/artikel", icon: Newspaper, title: "Kelola artikel", desc: `${artikelTerbit} artikel terbit` },
+    { to: "/admin/riwayat", icon: FileText, title: "Riwayat penanganan", desc: "Jejak perubahan status laporan" },
   ];
 
   return (
@@ -84,12 +66,23 @@ export default function AdminDashboard() {
       subtitle="Gambaran umum laporan, akun, dan konten edukasi. Isi laporan dan identitas pelapor tidak ditampilkan di sini."
     >
       <div className="space-y-5">
-        {/* Error ditampilkan di atas data lama, sehingga dashboard tetap terbaca saat pembaruan gagal */}
         {error && (
           <p role="alert" className="rounded-2xl bg-red-50 px-4 py-2 text-xs text-red-700">
             {error}
           </p>
         )}
+
+        {/* ✅ Tombol Refresh Data */}
+        <div className="flex justify-end">
+          <button
+            onClick={refresh}
+            disabled={loading}
+            className="flex items-center gap-2 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-tertiary shadow-sm border border-slate-200 hover:bg-slate-50 disabled:opacity-50 transition"
+          >
+            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+            {loading ? "Memuat..." : "Refresh Data"}
+          </button>
+        </div>
 
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
           {cards.map(({ label, value, icon: Icon }, i) => (
@@ -114,7 +107,6 @@ export default function AdminDashboard() {
                     <span className="tabular-nums text-slate-500">{k.jumlah}</span>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-[#F4F9F9]">
-                    {/* Lebar bar relatif terhadap kategori terbanyak, bukan terhadap total laporan */}
                     <div
                       className="h-full rounded-full bg-tertiary transition-all duration-500"
                       style={{ width: `${(k.jumlah / maxKategori) * 100}%` }}
@@ -141,10 +133,7 @@ export default function AdminDashboard() {
                       <span className="block text-sm font-semibold text-primary">{title}</span>
                       <span className="block text-xs text-slate-500">{desc}</span>
                     </span>
-                    <ChevronRight
-                      size={16}
-                      className="text-tertiary transition group-hover:translate-x-1"
-                    />
+                    <ChevronRight size={16} className="text-tertiary transition group-hover:translate-x-1" />
                   </Link>
                 </li>
               ))}
