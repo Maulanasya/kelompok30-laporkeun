@@ -16,27 +16,24 @@ const app = express();
 
 // Daftar origin yang diizinkan
 const allowedOrigins = [
-  "http://localhost:5173",
-  "https://kelompok30-laporkeun.vercel.app",
-  "https://kelompok30-laporkeun-backend.vercel.app",
+  "http://localhost:5173", // Frontend lokal Anda
+  "https://kelompok30-laporkeun.vercel.app"
+  // Tambahkan URL frontend Vercel Anda di sini jika frontend-nya sudah dideploy, contoh:
+  // "https://kelompok30-laporkeun.vercel.app"
 ];
-
-// URL preview Vercel, contoh: kelompok30-laporkeun-git-main-xxx.vercel.app
-const vercelPreview = /^https:\/\/kelompok30-laporkeun[a-z0-9-]*\.vercel\.app$/;
 
 app.use(cors({
   origin: function (origin, callback) {
+    // Izinkan request tanpa origin (seperti Postman atau mobile app)
     if (!origin) return callback(null, true);
-
-    if (allowedOrigins.includes(origin) || vercelPreview.test(origin)) {
-      return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) === -1) {
+      return callback(new Error('Ditolak oleh kebijakan CORS'), false);
     }
-
-    console.warn("CORS ditolak untuk origin:", origin);
-    return callback(null, false);
+    return callback(null, true);
   },
   credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  methods: ["GET", "POST", "PUT","PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
