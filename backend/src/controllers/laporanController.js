@@ -36,6 +36,17 @@ const generateKodeTiket = () =>
 
 const normTiket = (value) => String(value || "").trim().toUpperCase();
 
+// --- Helper link & pesan WhatsApp ---
+// CLIENT_URL diisi di .env (lokal) dan di Environment Variables Vercel (production)
+const CLIENT_URL = (process.env.CLIENT_URL || "http://localhost:5173").replace(/\/$/, "");
+
+const buildLinkLacak = (kodeTiket) =>
+  `${CLIENT_URL}/riwayat-laporan?kode=${encodeURIComponent(kodeTiket)}`;
+
+const buildPesanTiket = (kodeTiket) =>
+  `Halo, terima kasih sudah melapor ke LaporKeun!\n\nBerikut adalah kode tiket rahasiamu: *${kodeTiket}*.\n\nSimpan kode ini. Kamu bisa memantau status laporanmu melalui tautan berikut:\n${buildLinkLacak(kodeTiket)}\n\nJangan bagikan kode ini ke siapa pun ya!`;
+// ------------------------------------
+
 const isPsikolog = (req) => req.user?.role === "PSIKOLOG";
 const isAssignedTo = (sesiList, userId) =>
   (sesiList || []).some((s) => s.psikologId === userId);
@@ -180,19 +191,21 @@ exports.createLaporan = async (req, res) => {
           },
         });
 
-        // --- KIRIM WA OTOMATIS (PESAN CUSTOM KE-2) ---
+        // --- KIRIM WA OTOMATIS ---
+        // Pakai await + try/catch supaya di Vercel (serverless) request ke Fonnte
+        // tidak terputus, dan kalau WA gagal laporan tetap berhasil dibuat.
         if (noWhatsapp) {
-          const linkLacak = `http://localhost:5173/riwayat-laporan?kode=${laporan.kodeTiket}`;
-          const pesan = `Halo, terima kasih sudah melapor ke LaporKeun!\n\nBerikut adalah kode tiket rahasiamu: *${laporan.kodeTiket}*.\n\nSimpan kode ini. Kamu bisa memantau status laporanmu melalui tautan berikut:\n${linkLacak}\n\nJangan bagikan kode ini ke siapa pun ya!`;
-
-          axios.post("https://api.fonnte.com/send", {
-            target: noWhatsapp,
-            message: pesan,
-          }, {
-            headers: { Authorization: process.env.FONNTE_TOKEN }
-          }).catch((err) => console.error("Gagal kirim WA:", err.message));
+          try {
+            await axios.post(
+              "https://api.fonnte.com/send",
+              { target: noWhatsapp, message: buildPesanTiket(laporan.kodeTiket) },
+              { headers: { Authorization: process.env.FONNTE_TOKEN } }
+            );
+          } catch (err) {
+            console.error("Gagal kirim WA:", err.message);
+          }
         }
-        // ---------------------------------------------
+        // -------------------------
 
         return res.status(201).json({ message: "Laporan berhasil dikirim!", laporan });
       } catch (err) {
@@ -611,6 +624,8 @@ exports.alihkanKePsikolog = async (req, res) => {
     return fail(res, 500, "Gagal mengalihkan laporan.");
   }
 };
+
+// 11. Kirim ulang kode tiket ke WhatsApp
 exports.kirimTiketKeWa = async (req, res) => {
   try {
     const { kodeTiket } = req.params;
@@ -629,24 +644,22 @@ exports.kirimTiketKeWa = async (req, res) => {
       return fail(res, 404, "Laporan tidak ditemukan.");
     }
 
-    const linkLacak = `http://localhost:5173/riwayat-laporan?kode=${laporan.kodeTiket}`;
-    const pesan = `Halo, terima kasih sudah melapor ke LaporKeun!\n\nBerikut adalah kode tiket rahasiamu: *${laporan.kodeTiket}*.\n\nSimpan kode ini. Kamu bisa memantau status laporanmu melalui tautan berikut:\n${linkLacak}\n\nJangan bagikan kode ini ke siapa pun ya!`;
-
     // Kirim via Fonnte
-    await axios.post("https://api.fonnte.com/send", {
-      target: noWhatsapp,
-      message: pesan,
-    }, {
-      headers: { Authorization: process.env.FONNTE_TOKEN }
-    }).catch((err) => {
-      console.error("Gagal kirim WA:", err.message);
-      throw new Error("Gagal mengirim pesan WhatsApp. Cek nomor atau koneksi server.");
-    });
+    await axios
+      .post(
+        "https://api.fonnte.com/send",
+        { target: noWhatsapp, message: buildPesanTiket(laporan.kodeTiket) },
+        { headers: { Authorization: process.env.FONNTE_TOKEN } }
+      )
+      .catch((err) => {
+        console.error("Gagal kirim WA:", err.message);
+        throw new Error("Gagal mengirim pesan WhatsApp. Cek nomor atau koneksi server.");
+      });
 
     // Simpan nomor WA ke laporan (opsional, biar ke-track)
     await prisma.laporan.update({
       where: { kodeTiket: laporan.kodeTiket },
-      data: { noWhatsapp }
+      data: { noWhatsapp },
     });
 
     return res.json({ message: "Kode tiket berhasil dikirim ke WhatsApp!" });
