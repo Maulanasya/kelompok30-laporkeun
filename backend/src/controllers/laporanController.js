@@ -2,6 +2,7 @@ const axios = require("axios");
 const crypto = require("crypto");
 const prisma = require("../config/db");
 const { emitAdminStats } = require("../services/adminStats");
+const { uploadBuffer } = require("../services/cloudinary");
 
 const KATEGORI = [
   "BULLYING",
@@ -145,6 +146,18 @@ exports.createLaporan = async (req, res) => {
     const invalid = validateFields({ lokasiKejadian, waktuKejadian, deskripsi });
     if (invalid) return fail(res, 400, invalid);
 
+    // Upload bukti ke Cloudinary (file ada di memori, bukan di disk)
+    let buktiUrl = null;
+    if (req.file) {
+      try {
+        const hasil = await uploadBuffer(req.file.buffer);
+        buktiUrl = hasil.secure_url;
+      } catch (err) {
+        console.error("Upload Cloudinary Error:", err.message);
+        return fail(res, 502, "Gagal mengunggah bukti. Coba lagi.");
+      }
+    }
+
     const data = {
       pelaporId: req.user.id,
       kategori,
@@ -154,11 +167,11 @@ exports.createLaporan = async (req, res) => {
       isAnonim: parseBool(isAnonim, true),
       noWhatsapp: noWhatsapp || null,
       status: "PENDING",
-      ...(req.file
+      ...(buktiUrl
         ? {
             bukti: {
               create: {
-                filePath: `uploads/bukti/${req.file.filename}`,
+                filePath: buktiUrl,
                 tipeFile: req.file.mimetype,
               },
             },
@@ -192,8 +205,7 @@ exports.createLaporan = async (req, res) => {
         });
 
         // --- KIRIM WA OTOMATIS ---
-        // Pakai await + try/catch supaya di Vercel (serverless) request ke Fonnte
-        // tidak terputus, dan kalau WA gagal laporan tetap berhasil dibuat.
+        // await + try/catch: aman di Vercel, dan laporan tetap berhasil walau WA gagal
         if (noWhatsapp) {
           try {
             await axios.post(

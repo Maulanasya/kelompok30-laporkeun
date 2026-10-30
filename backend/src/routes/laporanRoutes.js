@@ -1,7 +1,4 @@
 const express = require("express");
-const fs = require("fs");
-const path = require("path");
-const crypto = require("crypto");
 const multer = require("multer");
 
 const router = express.Router();
@@ -16,15 +13,12 @@ const {
   archiveLaporan,
   getDaftarPsikolog,
   alihkanKePsikolog,
-  kirimTiketKeWa, // <-- IMPORT FUNGSI BARU
+  kirimTiketKeWa,
 } = require("../controllers/laporanController");
 const { verifyToken } = require("../middlewares/authMiddleware");
 
-// Konfigurasi direktori penyimpanan file bukti
-const UPLOAD_DIR = path.join(__dirname, "../../uploads/bukti");
-fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+// Batas body request Vercel ±4,5 MB, jadi file dibatasi 4 MB
+const MAX_FILE_SIZE = 4 * 1024 * 1024;
 const ALLOWED_TYPES = [
   "image/jpeg",
   "image/png",
@@ -32,17 +26,9 @@ const ALLOWED_TYPES = [
   "application/pdf",
 ];
 
+// File disimpan di memori (bukan disk), lalu diteruskan ke Cloudinary di controller
 const upload = multer({
-  storage: multer.diskStorage({
-    destination: (req, file, cb) => cb(null, UPLOAD_DIR),
-    // Nama file diacak untuk keamanan, ekstensi asli dipertahankan
-    filename: (req, file, cb) =>
-      cb(
-        null,
-        crypto.randomBytes(16).toString("hex") +
-          path.extname(file.originalname).toLowerCase()
-      ),
-  }),
+  storage: multer.memoryStorage(),
   limits: { fileSize: MAX_FILE_SIZE, files: 1 },
   fileFilter: (req, file, cb) =>
     ALLOWED_TYPES.includes(file.mimetype)
@@ -50,20 +36,16 @@ const upload = multer({
       : cb(new Error("TIPE_FILE")),
 });
 
-// Middleware untuk menangani upload file dan membersihkan file jika request gagal
+// Middleware untuk menangani upload file
 const uploadBukti = (req, res, next) => {
-  res.on("finish", () => {
-    if (res.statusCode >= 400 && req.file) {
-      fs.unlink(req.file.path, () => {});
-    }
-  });
-
   upload.single("bukti")(req, res, (err) => {
     if (!err) return next();
 
+    console.error("Upload Bukti Error:", err.code || err.message);
+
     const text =
       err.code === "LIMIT_FILE_SIZE"
-        ? "Ukuran file maksimal 5 MB."
+        ? "Ukuran file maksimal 4 MB."
         : err.message === "TIPE_FILE"
         ? "Format file harus JPG, PNG, WEBP, atau PDF."
         : "Gagal mengunggah file.";
@@ -93,11 +75,10 @@ const MANAGER = ["GURU_BK", "ADMIN"];
 router.get("/tiket/:kodeTiket", getLaporanByTiket);
 
 // Kirim ulang kode tiket ke WhatsApp (dari halaman Success)
-router.post("/:kodeTiket/kirim-wa", kirimTiketKeWa); 
+router.post("/:kodeTiket/kirim-wa", kirimTiketKeWa);
 
 // --- ROUTE SISWA (Wajib Login) ---
 
-// Membuat, melihat, dan memperbarui laporan sendiri
 router.post(
   "/",
   verifyToken,
@@ -110,7 +91,6 @@ router.put("/:id", verifyToken, requireRole("SISWA"), updateLaporanSiswa);
 
 // --- ROUTE STAF (Guru BK / Psikolog / Admin) ---
 
-// Guru BK / Admin: Mengelola daftar psikolog, pengalihan laporan, dan arsip
 router.get("/psikolog", verifyToken, requireRole(...MANAGER), getDaftarPsikolog);
 router.patch(
   "/:id/alihkan",
@@ -125,7 +105,6 @@ router.patch(
   archiveLaporan
 );
 
-// Staf (Guru BK / Psikolog / Admin): Melihat daftar, detail, dan mengubah status laporan
 router.get("/", verifyToken, requireRole(...STAFF), getAllLaporan);
 router.get(
   "/detail/:kodeTiket",
