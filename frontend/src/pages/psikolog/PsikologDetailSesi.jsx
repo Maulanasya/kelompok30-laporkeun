@@ -5,6 +5,7 @@ import BkShell, { Panel } from "../../components/layout/BkShell";
 import StatusBadge from "../../components/bk/StatusBadge";
 import { api } from "../../services/api";
 import { CATEGORY_LABEL } from "../../data/bkReports";
+import { buktiUrl } from "../../utils/bukti";
 
 function formatTanggal(iso) {
   if (!iso) return "-";
@@ -139,7 +140,7 @@ export default function PsikologDetailSesi() {
               <ul className="space-y-2">
                 {report.bukti.map((b) => (
                   <li key={b.id} className="rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-700">
-                    <a href={`https://kelompok30-laporkeun-backend.vercel.app/${b.filePath}`} target="_blank" rel="noreferrer" className="text-tertiary hover:underline">
+                    <a href={buktiUrl(b.filePath)} target="_blank" rel="noreferrer" className="text-tertiary hover:underline">
                       {b.filePath.split("/").pop()}
                     </a>
                   </li>

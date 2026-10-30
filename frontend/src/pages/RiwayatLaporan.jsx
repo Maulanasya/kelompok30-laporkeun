@@ -10,7 +10,7 @@ import {
   LogIn,
   Info,
 } from "lucide-react";
-
+import { buktiUrl } from "../utils/bukti";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 import BlurText from "../components/reactbits/BlurText";
@@ -534,7 +534,7 @@ export default function RiwayatLaporan() {
                         <div className="space-y-2.5">
                           {owned.bukti && owned.bukti.length > 0 ? (
                             owned.bukti.map((item) => (
-                              <EvidenceItem key={item.id} name={item.filePath?.split("/").pop()} url={`${SERVER_URL}/${item.filePath}`} />
+                              <EvidenceItem key={item.id} name={item.filePath?.split("/").pop()} url={buktiUrl(item.filePath)} />
                             ))
                           ) : (
                             <p className="text-xs text-slate-500">Tidak ada bukti yang dilampirkan.</p>

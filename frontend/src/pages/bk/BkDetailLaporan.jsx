@@ -18,6 +18,7 @@ import BkShell, { Panel } from "../../components/layout/BkShell";
 import BkSelect from "../../components/bk/BkSelect";
 import { api } from "../../services/api";
 import { CATEGORY_LABEL, STATUS } from "../../data/bkReports";
+import { buktiUrl } from "../../utils/bukti";
 
 function formatTanggal(iso) {
   if (!iso) return "-";
@@ -278,7 +279,7 @@ export default function BkDetailLaporan() {
                     className="rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-700"
                   >
                     <a
-                      href={`https://kelompok30-laporkeun-backend.vercel.app/${b.filePath}`}
+                      href={buktiUrl(b.filePath)}
                       target="_blank"
                       rel="noreferrer"
                       className="text-tertiary hover:underline"
