@@ -22,8 +22,8 @@ Proyek Kelompok 30.
 
 ```
 laporkeunkel30/
-├── frontend/   # aplikasi React + Vite
-├── backend/    # server/API (belum dibuat)
+├── frontend/   # React, Vite, Tailwind
+├── backend/    # express js, postgreSQL, Firebase
 └── README.md
 ```
 
