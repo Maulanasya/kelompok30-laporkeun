@@ -1,7 +1,17 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { FileText, ArrowLeft, Loader2 } from "lucide-react";
-import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp } from "firebase/firestore";
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  onSnapshot,
+  addDoc,
+  serverTimestamp,
+  writeBatch,
+  doc,
+} from "firebase/firestore";
 
 import BkShell, { Panel } from "../../components/layout/BkShell";
 import ChatList from "../../components/ChatList";
@@ -12,7 +22,7 @@ import { api } from "../../services/api";
 import { getUser } from "../../utils/auth";
 import { db } from "../../lib/firebase";
 
-const LAWAN = "BK"; // ✅ Kunci untuk halaman BK
+const LAWAN = "BK";
 const STACKED_LAYOUT_QUERY = "(max-width: 1023px)";
 const PAGE_SCROLL_OFFSET = 96;
 
@@ -20,25 +30,6 @@ const scrollPageTo = (el) => {
   if (!el) return;
   const top = el.getBoundingClientRect().top + window.scrollY - PAGE_SCROLL_OFFSET;
   window.scrollTo({ top: Math.max(top, 0), behavior: "smooth" });
-};
-
-const isSameDay = (a, b) => {
-  const da = new Date(a);
-  const db = new Date(b);
-  if (isNaN(da.getTime()) || isNaN(db.getTime())) return false;
-  return da.toDateString() === db.toDateString();
-};
-
-const dayLabel = (value) => {
-  const d = new Date(value);
-  if (isNaN(d.getTime())) return "";
-  const today = new Date();
-  const yesterday = new Date();
-  yesterday.setDate(today.getDate() - 1);
-  const same = (a, b) => a.toDateString() === b.toDateString();
-  if (same(d, today)) return "Hari ini";
-  if (same(d, yesterday)) return "Kemarin";
-  return d.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
 };
 
 export default function BkKonsultasi() {
@@ -49,7 +40,7 @@ export default function BkKonsultasi() {
   const [conversations, setConversations] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [messages, setMessages] = useState([]);
-  
+
   const [loadingList, setLoadingList] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [listError, setListError] = useState("");
@@ -59,19 +50,30 @@ export default function BkKonsultasi() {
   const chatPanelRef = useRef(null);
   const messagesRef = useRef(null);
 
-  // 1. Ambil daftar laporan dari API
+  // 1. Ambil daftar laporan dari API & filter khusus milik Guru BK yang sedang login
   const loadList = useCallback(async () => {
     try {
       const res = await api.getAllLaporan();
       const list = res?.data || [];
-      const filteredList = list.filter((r) => (r.status === "PROSES" || r.status === "DITINJAU") && r.sesi?.length > 0);
+      const filteredList = list.filter((r) => {
+        const isStatusAktif = r.status === "PROSES" || r.status === "DITINJAU";
+        const sesiBkSaya = (r.sesi || []).some(
+          (s) => s.guruBkId === user?.id && !s.psikologId
+        );
+        return isStatusAktif && sesiBkSaya;
+      });
 
       const formatted = filteredList.map((l) => ({
         id: l.kodeTiket,
-        name: l.isAnonim ? "Siswa Anonim" : `${l.pelapor?.nama} (${l.pelapor?.kelas || "-"})`,
+        name: l.isAnonim
+          ? "Siswa Anonim"
+          : `${l.pelapor?.nama} (${l.pelapor?.kelas || "-"})`,
         ticket: l.kodeTiket,
         lastMessage: "Buka untuk melihat chat",
-        time: new Date(l.updatedAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
+        time: new Date(l.updatedAt).toLocaleTimeString("id-ID", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
         unread: 0,
       }));
 
@@ -82,35 +84,23 @@ export default function BkKonsultasi() {
     } finally {
       setLoadingList(false);
     }
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     loadList();
   }, [loadList]);
 
-  // Gabungkan tiket dari URL jika belum ada di list
-  const items = useMemo(() => {
-    if (initialTicket && !conversations.some((c) => c.ticket === initialTicket)) {
-      return [
-        {
-          id: initialTicket,
-          ticket: initialTicket,
-          name: `Laporan ${initialTicket}`,
-          lastMessage: "Belum ada pesan",
-          time: "",
-          unread: 0,
-        },
-        ...conversations,
-      ];
-    }
-    return conversations;
-  }, [conversations, initialTicket]);
+  // Hanya izinkan tiket yang memang menjadi tanggung jawab Guru BK yang login
+  const items = useMemo(() => conversations, [conversations]);
 
-  const active = items.find((c) => c.id === activeId) ?? items.find((c) => c.ticket === initialTicket) ?? items[0];
+  const active =
+    items.find((c) => c.id === activeId) ??
+    items.find((c) => c.ticket === initialTicket) ??
+    items[0];
 
-  // 2. Tarik Pesan dari Firestore
+  // 2. Tarik Pesan dari Firestore & tandai pesan lawan sebagai sudah dibaca
   useEffect(() => {
-    if (!active?.ticket) return;
+    if (!active?.ticket || !user?.id) return;
 
     setLoadingMessages(true);
     setMessages([]);
@@ -123,17 +113,43 @@ export default function BkKonsultasi() {
       orderBy("createdAt", "asc")
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setMessages(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
-      setLoadingMessages(false);
-    }, (err) => {
-      console.error(err);
-      setChatError("Gagal memuat pesan.");
-      setLoadingMessages(false);
-    });
+    const unsubscribe = onSnapshot(
+      q,
+      async (snapshot) => {
+        const docs = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+        setMessages(docs);
+        setLoadingMessages(false);
+
+        // Tandai pesan dari lawan bicara yang belum dibaca menjadi sudahBaca: true
+        const unreadDocs = snapshot.docs.filter((d) => {
+          const data = d.data();
+          return (
+            String(data.senderId) !== String(user.id) &&
+            data.sudahBaca !== true
+          );
+        });
+
+        if (unreadDocs.length > 0) {
+          try {
+            const batch = writeBatch(db);
+            unreadDocs.forEach((d) => {
+              batch.update(doc(db, "chats", d.id), { sudahBaca: true });
+            });
+            await batch.commit();
+          } catch (err) {
+            console.error("Gagal update status baca:", err);
+          }
+        }
+      },
+      (err) => {
+        console.error(err);
+        setChatError("Gagal memuat pesan.");
+        setLoadingMessages(false);
+      }
+    );
 
     return () => unsubscribe();
-  }, [active?.ticket]);
+  }, [active?.ticket, user?.id]);
 
   // 3. Kirim Pesan
   const handleSend = async (text) => {
@@ -146,6 +162,7 @@ export default function BkKonsultasi() {
         senderName: user.nama,
         senderRole: user.role,
         pesan: text.trim(),
+        sudahBaca: false,
         createdAt: serverTimestamp(),
       });
     } catch (err) {
@@ -184,21 +201,41 @@ export default function BkKonsultasi() {
     return (
       <BkShell title="Konsultasi" subtitle="Belum ada chat">
         <Panel className="p-8 text-center">
-          <p className="text-sm text-slate-600">{listError || "Belum ada siswa yang memulai percakapan."}</p>
+          <p className="text-sm text-slate-600">
+            {listError || "Belum ada laporan yang sedang kamu tangani."}
+          </p>
         </Panel>
       </BkShell>
     );
   }
 
   return (
-    <BkShell title="Konsultasi dengan siswa" subtitle="Percakapan hanya terlihat olehmu dan siswa terkait.">
+    <BkShell
+      title="Konsultasi dengan siswa"
+      subtitle="Percakapan hanya terlihat olehmu dan siswa terkait."
+    >
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
-        <Panel innerRef={listPanelRef} className="scroll-mt-24 p-5 lg:h-160 lg:overflow-y-auto">
-          <ChatList conversations={items} activeId={active.id} onSelect={handleSelect} />
+        <Panel
+          innerRef={listPanelRef}
+          className="scroll-mt-24 p-5 lg:h-160 lg:overflow-y-auto"
+        >
+          <ChatList
+            conversations={items}
+            activeId={active.id}
+            onSelect={handleSelect}
+          />
         </Panel>
 
-        <Panel innerRef={chatPanelRef} delay={0.1} className="flex h-140 scroll-mt-24 flex-col overflow-hidden lg:h-160">
-          <button type="button" onClick={handleBackToList} className="flex shrink-0 cursor-pointer items-center gap-1.5 border-b border-slate-200 bg-white px-5 py-3 text-xs font-semibold text-primary transition hover:bg-slate-50 lg:hidden">
+        <Panel
+          innerRef={chatPanelRef}
+          delay={0.1}
+          className="flex h-140 scroll-mt-24 flex-col overflow-hidden lg:h-160"
+        >
+          <button
+            type="button"
+            onClick={handleBackToList}
+            className="flex shrink-0 cursor-pointer items-center gap-1.5 border-b border-slate-200 bg-white px-5 py-3 text-xs font-semibold text-primary transition hover:bg-slate-50 lg:hidden"
+          >
             <ArrowLeft size={14} /> Daftar percakapan
           </button>
 
@@ -206,24 +243,42 @@ export default function BkKonsultasi() {
 
           <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-white px-5 py-2 text-xs text-slate-500">
             <span>Perlu pendampingan lebih lanjut?</span>
-            <Link to={`/bk/laporan/${active.ticket}`} className="inline-flex items-center gap-1.5 font-semibold text-tertiary hover:underline">
+            <Link
+              to={`/bk/laporan/${active.ticket}`}
+              className="inline-flex items-center gap-1.5 font-semibold text-tertiary hover:underline"
+            >
               <FileText size={13} /> Buka laporan
             </Link>
           </div>
 
-          <div ref={messagesRef} className="flex-1 space-y-3 overflow-y-auto bg-[#F4F9F9] px-5 py-5">
+          <div
+            ref={messagesRef}
+            className="flex-1 space-y-3 overflow-y-auto bg-[#F4F9F9] px-5 py-5"
+          >
             {loadingMessages ? (
-              <p className="pt-10 text-center text-xs text-slate-400">Memuat pesan...</p>
+              <p className="pt-10 text-center text-xs text-slate-400">
+                Memuat pesan...
+              </p>
             ) : chatError ? (
-              <p className="pt-10 text-center text-xs text-red-500">{chatError}</p>
+              <p className="pt-10 text-center text-xs text-red-500">
+                {chatError}
+              </p>
             ) : messages.length === 0 ? (
-              <p className="pt-10 text-center text-sm text-slate-500">Belum ada pesan. Mulai percakapan.</p>
+              <p className="pt-10 text-center text-sm text-slate-500">
+                Belum ada pesan. Mulai percakapan.
+              </p>
             ) : (
               messages.map((msg) => (
                 <ChatBubble
                   key={msg.id}
-                  from={String(msg.senderId) === String(user?.id) ? "user" : "psikolog"}
+                  from={
+                    String(msg.senderId) === String(user?.id)
+                      ? "user"
+                      : "psikolog"
+                  }
                   text={msg.pesan}
+                  createdAt={msg.createdAt}
+                  sudahBaca={Boolean(msg.sudahBaca)}
                 />
               ))
             )}

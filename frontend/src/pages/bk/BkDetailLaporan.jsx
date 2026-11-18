@@ -150,11 +150,30 @@ export default function BkDetailLaporan() {
         <Panel className="p-6">Memuat...</Panel>
       </BkShell>
     );
+
   if (error || !report)
     return (
-      <BkShell title="Detail Laporan" subtitle="Error">
-        <Panel className="p-6 text-danger">
-          {error || "Laporan tidak ditemukan."}
+      <BkShell
+        title="Detail Laporan"
+        subtitle="Informasi akses penanganan laporan."
+      >
+        <Panel className="space-y-6 p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Link
+              to="/bk/laporan"
+              className="inline-flex items-center gap-2 text-sm text-tertiary hover:underline"
+            >
+              <ArrowLeft size={16} /> Kembali ke daftar laporan
+            </Link>
+          </div>
+
+          <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            <AlertCircle size={20} className="mt-0.5 shrink-0 text-amber-600" />
+            <div className="space-y-1">
+              <p className="font-semibold">Akses Terbatas</p>
+              <p>{error || "Laporan tidak ditemukan atau sudah ditangani."}</p>
+            </div>
+          </div>
         </Panel>
       </BkShell>
     );
@@ -165,7 +184,9 @@ export default function BkDetailLaporan() {
   const sudahDialihkan = Boolean(sesiPsikolog);
   const bisaDialihkan =
     !sudahDialihkan &&
-    (report.status === "PENDING" || report.status === "DITINJAU" || report.status === "PROSES");
+    (report.status === "PENDING" ||
+      report.status === "DITINJAU" ||
+      report.status === "PROSES");
 
   return (
     <BkShell

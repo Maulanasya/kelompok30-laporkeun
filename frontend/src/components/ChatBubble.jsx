@@ -3,11 +3,11 @@ import { Check, CheckCheck } from "lucide-react";
 
 const EASE_OUT_TRANSITION = [0.16, 1, 0.3, 1];
 
-// Format waktu dari ISO string, timestamp, atau objek Date.
-// Selalu memakai zona waktu WIB supaya konsisten di semua perangkat.
+// Mendukung string ISO, Date, number, maupun Firestore Timestamp (.toDate())
 export const formatTime = (value) => {
   if (!value) return "";
-  const d = new Date(value);
+  const d =
+    typeof value?.toDate === "function" ? value.toDate() : new Date(value);
   if (isNaN(d.getTime())) return "";
   return d.toLocaleTimeString("id-ID", {
     hour: "2-digit",
@@ -29,9 +29,6 @@ export default function ChatBubble({
   const isUser =
     isMe !== undefined ? Boolean(isMe) : from === "user" || from === "me";
 
-  // Pakai createdAt (data mentah) jika ada.
-  // Jika tidak ada, pakai `time` apa adanya (sudah berupa string jam jadi,
-  // jangan dilempar ke new Date() lagi).
   const jam = createdAt ? formatTime(createdAt) : time || "";
 
   return (
@@ -53,28 +50,36 @@ export default function ChatBubble({
           </span>
         )}
 
-        {/* Kotak gelembung chat (teks dan indikator waktu/status) */}
+        {/* Kotak gelembung chat: teks & waktu/centang sejajar di samping kanan bawah */}
         <div
-          className={`rounded-2xl px-3.5 pb-1.5 pt-2 text-[11px] leading-relaxed ${
+          className={`rounded-2xl px-3.5 py-2 text-[11px] leading-relaxed ${
             isUser
               ? "rounded-br-xs bg-tertiary text-white shadow-sm shadow-tertiary/20"
               : "rounded-bl-xs border border-slate-200 bg-white text-slate-700"
           }`}
         >
-          <p className="whitespace-pre-wrap wrap-break-word">{text}</p>
+          <div className="flex items-end justify-between gap-2.5">
+            <p className="whitespace-pre-wrap wrap-break-word">{text}</p>
 
-          <div
-            className={`mt-0.5 flex items-center justify-end gap-1 text-[9px] ${
-              isUser ? "text-white/70" : "text-slate-400"
-            }`}
-          >
-            {jam && <span>{jam}</span>}
-            {isUser &&
-              (sudahBaca ? (
-                <CheckCheck size={12} aria-label="Dibaca" />
-              ) : (
-                <Check size={12} aria-label="Terkirim" />
-              ))}
+            {(jam || isUser) && (
+              <div
+                className={`mb-0.5 flex shrink-0 items-center gap-1 text-[9px] leading-none ${
+                  isUser ? "text-white/80" : "text-slate-400"
+                }`}
+              >
+                {jam && <span>{jam}</span>}
+                {isUser &&
+                  (sudahBaca ? (
+                    <CheckCheck
+                      size={13}
+                      className="text-sky-200"
+                      aria-label="Dibaca"
+                    />
+                  ) : (
+                    <Check size={13} aria-label="Terkirim" />
+                  ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -1,7 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Lock, MessageCircleOff, ArrowLeft, Loader2 } from "lucide-react";
-import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp } from "firebase/firestore";
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  onSnapshot,
+  addDoc,
+  serverTimestamp,
+  writeBatch,
+  doc,
+} from "firebase/firestore";
 
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
@@ -28,13 +38,17 @@ const scrollPageTo = (el) => {
 
 const lawanLabel = (lawan) => (lawan === "PSIKOLOG" ? "Psikolog" : "Guru BK");
 
-
 export default function ChatSiswa() {
   const [params] = useSearchParams();
   const user = getUser();
 
   const urlKode = (params.get("kode") || "").trim().toUpperCase() || null;
-  const urlLawan = params.get("lawan") === "PSIKOLOG" ? "PSIKOLOG" : params.get("lawan") === "BK" ? "BK" : null;
+  const urlLawan =
+    params.get("lawan") === "PSIKOLOG"
+      ? "PSIKOLOG"
+      : params.get("lawan") === "BK"
+      ? "BK"
+      : null;
 
   const [conversations, setConversations] = useState([]);
   const [activeId, setActiveId] = useState(null);
@@ -58,7 +72,10 @@ export default function ChatSiswa() {
       const formatted = list
         .filter((l) => l.status === "DITINJAU" || l.status === "PROSES")
         .flatMap((l) => {
-          const time = new Date(l.updatedAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+          const time = new Date(l.updatedAt).toLocaleTimeString("id-ID", {
+            hour: "2-digit",
+            minute: "2-digit",
+          });
           const make = (lawan, person) => {
             return {
               id: `${l.kodeTiket}__${lawan}`,
@@ -66,7 +83,9 @@ export default function ChatSiswa() {
               lawan,
               person,
               name: person || `${lawanLabel(lawan)} · ${l.kodeTiket}`,
-              lastMessage: person ? `${lawanLabel(lawan)} · ${l.kodeTiket}` : "Buka untuk melihat chat",
+              lastMessage: person
+                ? `${lawanLabel(lawan)} · ${l.kodeTiket}`
+                : "Buka untuk melihat chat",
               time,
               unread: 0,
             };
@@ -79,12 +98,21 @@ export default function ChatSiswa() {
             const lawan = s.jenis === "PSIKOLOG" ? "PSIKOLOG" : "BK";
             if (seen.has(lawan)) continue;
             seen.add(lawan);
-            rows.push(make(lawan, lawan === "PSIKOLOG" ? s.psikolog?.nama : s.guruBk?.nama));
+            rows.push(
+              make(lawan, lawan === "PSIKOLOG" ? s.psikolog?.nama : s.guruBk?.nama)
+            );
           }
 
           // Cadangan: belum ada sesi sama sekali, tampilkan chat BK dari data pendamping.
           if (rows.length === 0) {
-            rows.push(make("BK", l.pendamping?.role === "BK" ? l.pendamping?.nama : null));
+            rows.push(
+              make(
+                "BK",
+                l.pendamping?.role === "GURU_BK" || l.pendamping?.role === "BK"
+                  ? l.pendamping?.nama
+                  : null
+              )
+            );
           }
           return rows;
         });
@@ -127,12 +155,14 @@ export default function ChatSiswa() {
 
   const active =
     items.find((c) => c.id === activeId) ??
-    items.find((c) => c.ticket === urlKode && (!urlLawan || c.lawan === urlLawan)) ??
+    items.find(
+      (c) => c.ticket === urlKode && (!urlLawan || c.lawan === urlLawan)
+    ) ??
     items[0];
 
-  // 2. Tarik chat dari Firestore (realtime)
+  // 2. Tarik chat dari Firestore (realtime) & tandai pesan lawan sebagai dibaca
   useEffect(() => {
-    if (!active?.ticket) return;
+    if (!active?.ticket || !user?.id) return;
 
     setLoadingMessages(true);
     setMessages([]);
@@ -147,9 +177,31 @@ export default function ChatSiswa() {
 
     const unsubscribe = onSnapshot(
       q,
-      (snapshot) => {
-        setMessages(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+      async (snapshot) => {
+        const docs = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+        setMessages(docs);
         setLoadingMessages(false);
+
+        // Tandai pesan masuk dari Guru BK / Psikolog menjadi sudahBaca: true
+        const unreadDocs = snapshot.docs.filter((d) => {
+          const data = d.data();
+          return (
+            String(data.senderId) !== String(user.id) &&
+            data.sudahBaca !== true
+          );
+        });
+
+        if (unreadDocs.length > 0) {
+          try {
+            const batch = writeBatch(db);
+            unreadDocs.forEach((d) => {
+              batch.update(doc(db, "chats", d.id), { sudahBaca: true });
+            });
+            await batch.commit();
+          } catch (err) {
+            console.error("Gagal update status baca:", err);
+          }
+        }
       },
       (err) => {
         console.error(err);
@@ -159,7 +211,7 @@ export default function ChatSiswa() {
     );
 
     return () => unsubscribe();
-  }, [active?.ticket, active?.lawan]);
+  }, [active?.ticket, active?.lawan, user?.id]);
 
   // 3. Kirim pesan
   const handleSend = async (text) => {
@@ -172,6 +224,7 @@ export default function ChatSiswa() {
         senderName: user.nama,
         senderRole: user.role,
         pesan: text.trim(),
+        sudahBaca: false,
         createdAt: serverTimestamp(),
       });
     } catch (err) {
@@ -196,7 +249,9 @@ export default function ChatSiswa() {
 
   const handleBackToList = () => scrollPageTo(listPanelRef.current);
 
-  const heading = active ? `Konsultasi dengan ${lawanLabel(active.lawan)}` : "Ruang Konsultasi";
+  const heading = active
+    ? `Konsultasi dengan ${lawanLabel(active.lawan)}`
+    : "Ruang Konsultasi";
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F4F9F9] text-slate-800">
@@ -218,22 +273,35 @@ export default function ChatSiswa() {
 
           {loadingList ? (
             <Panel className="flex h-100 items-center justify-center gap-2 text-slate-500">
-              <Loader2 className="animate-spin text-tertiary" /> Memuat ruang chat...
+              <Loader2 className="animate-spin text-tertiary" /> Memuat ruang
+              chat...
             </Panel>
           ) : !active ? (
             <Panel className="flex h-100 flex-col items-center justify-center p-8 text-center">
-              <MessageCircleOff size={80} className="mb-6 text-slate-300" strokeWidth={1.5} />
+              <MessageCircleOff
+                size={80}
+                className="mb-6 text-slate-300"
+                strokeWidth={1.5}
+              />
               <h2 className="mb-3 text-xl font-bold text-primary">
                 {listError ? "Gagal memuat sesi" : "Belum Ada Sesi Konseling"}
               </h2>
               <p className="max-w-md text-sm text-slate-500">
-                {listError || "Saat ini belum ada laporan yang sedang ditinjau atau diproses."}
+                {listError ||
+                  "Saat ini belum ada laporan yang sedang ditinjau atau diproses."}
               </p>
             </Panel>
           ) : (
             <section className="grid grid-cols-1 gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
-              <Panel innerRef={listPanelRef} className="scroll-mt-24 p-5 lg:h-160 lg:overflow-y-auto">
-                <ChatList conversations={items} activeId={active.id} onSelect={handleSelect} />
+              <Panel
+                innerRef={listPanelRef}
+                className="scroll-mt-24 p-5 lg:h-160 lg:overflow-y-auto"
+              >
+                <ChatList
+                  conversations={items}
+                  activeId={active.id}
+                  onSelect={handleSelect}
+                />
               </Panel>
 
               <Panel
@@ -250,25 +318,43 @@ export default function ChatSiswa() {
                 </button>
 
                 <ChatHeader
-                  name={active.person ? `${active.person} (${lawanLabel(active.lawan)})` : lawanLabel(active.lawan)}
+                  name={
+                    active.person
+                      ? `${active.person} (${lawanLabel(active.lawan)})`
+                      : lawanLabel(active.lawan)
+                  }
                   ticket={active.ticket}
                 />
 
-                <div ref={messagesRef} className="flex-1 space-y-3 overflow-y-auto bg-[#F4F9F9] px-5 py-5">
+                <div
+                  ref={messagesRef}
+                  className="flex-1 space-y-3 overflow-y-auto bg-[#F4F9F9] px-5 py-5"
+                >
                   {loadingMessages ? (
-                    <p className="pt-10 text-center text-xs text-slate-400">Memuat pesan...</p>
+                    <p className="pt-10 text-center text-xs text-slate-400">
+                      Memuat pesan...
+                    </p>
                   ) : chatError ? (
-                    <p className="pt-10 text-center text-xs text-red-500">{chatError}</p>
+                    <p className="pt-10 text-center text-xs text-red-500">
+                      {chatError}
+                    </p>
                   ) : messages.length === 0 ? (
                     <p className="pt-10 text-center text-sm text-slate-500">
-                      Belum ada pesan. Mulai percakapan dengan menyapa {active.person || lawanLabel(active.lawan)}.
+                      Belum ada pesan. Mulai percakapan dengan menyapa{" "}
+                      {active.person || lawanLabel(active.lawan)}.
                     </p>
                   ) : (
                     messages.map((msg) => (
                       <ChatBubble
                         key={msg.id}
-                        from={String(msg.senderId) === String(user?.id) ? "user" : "psikolog"}
+                        from={
+                          String(msg.senderId) === String(user?.id)
+                            ? "user"
+                            : "psikolog"
+                        }
                         text={msg.pesan}
+                        createdAt={msg.createdAt}
+                        sudahBaca={Boolean(msg.sudahBaca)}
                       />
                     ))
                   )}
