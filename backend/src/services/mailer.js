@@ -44,3 +44,70 @@ exports.sendResetCode = async (to, nama, code) => {
       </div>`,
   });
 };
+
+const CLIENT_URL = (process.env.CLIENT_URL || "http://localhost:5173").replace(/\/$/, "");
+
+const STATUS_LABEL = {
+  PENDING: "Menunggu Ditinjau",
+  DITINJAU: "Ditinjau",
+  PROSES: "Sedang Diproses",
+  SELESAI: "Selesai",
+};
+
+const safeSend = async ({ to, subject, text, html }) => {
+  if (!to) return;
+  if (!transporter) {
+    console.log(`\n[MAIL DEV] Ke ${to} | ${subject}\n${text}\n`);
+    return;
+  }
+  try {
+    await transporter.sendMail({ from: MAIL_FROM || SMTP_USER, to, subject, text, html });
+  } catch (err) {
+    console.error("[MAIL] Gagal kirim notifikasi:", err.message);
+  }
+};
+
+const layout = ({ nama, judul, isi, link, tombol }) => `
+  <div style="font-family:Arial,sans-serif;max-width:460px;margin:auto;color:#0F4C5C">
+    <h2 style="margin-bottom:4px">LaporKeun!</h2>
+    <p>Halo ${escapeHtml(nama)},</p>
+    <p><b>${escapeHtml(judul)}</b></p>
+    <p>${isi}</p>
+    <p style="margin:20px 0">
+      <a href="${link}" style="background:#0F4C5C;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none">${escapeHtml(tombol)}</a>
+    </p>
+    <p style="font-size:12px;color:#64748B">Email otomatis, jangan dibalas. Demi privasi, isi laporan dan pesan tidak ditampilkan di email ini.</p>
+  </div>`;
+
+exports.sendStatusChange = ({ to, nama, kodeTiket, status }) => {
+  const label = STATUS_LABEL[status] || status;
+  const link = `${CLIENT_URL}/riwayat-laporan?kode=${encodeURIComponent(kodeTiket)}`;
+  return safeSend({
+    to,
+    subject: "Status laporanmu diperbarui - LaporKeun!",
+    text: `Halo ${nama},\n\nStatus laporan ${kodeTiket} kini: ${label}.\nLihat detail: ${link}`,
+    html: layout({
+      nama,
+      judul: "Status laporanmu diperbarui",
+      isi: `Status laporan <b>${escapeHtml(kodeTiket)}</b> kini: <b>${escapeHtml(label)}</b>.`,
+      link,
+      tombol: "Lihat Laporan",
+    }),
+  });
+};
+
+exports.sendNewMessage = ({ to, nama, kodeTiket, dari }) => {
+  const link = `${CLIENT_URL}/chat`; 
+  return safeSend({
+    to,
+    subject: "Ada pesan baru - LaporKeun!",
+    text: `Halo ${nama},\n\n${dari} mengirim pesan baru pada laporan ${kodeTiket}.\nBuka chat: ${link}`,
+    html: layout({
+      nama,
+      judul: "Ada pesan baru untukmu",
+      isi: `${escapeHtml(dari)} mengirim pesan baru pada laporan <b>${escapeHtml(kodeTiket)}</b>.`,
+      link,
+      tombol: "Buka Chat",
+    }),
+  });
+};

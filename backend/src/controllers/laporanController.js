@@ -1,6 +1,7 @@
 const axios = require("axios");
 const crypto = require("crypto");
 const prisma = require("../config/db");
+const mailer = require("../services/mailer");
 const { emitAdminStats } = require("../services/adminStats");
 const { uploadBuffer } = require("../services/cloudinary");
 
@@ -37,8 +38,6 @@ const generateKodeTiket = () =>
 
 const normTiket = (value) => String(value || "").trim().toUpperCase();
 
-// --- Helper link & pesan WhatsApp ---
-// CLIENT_URL diisi di .env (lokal) dan di Environment Variables Vercel (production)
 const CLIENT_URL = (process.env.CLIENT_URL || "http://localhost:5173").replace(/\/$/, "");
 
 const buildLinkLacak = (kodeTiket) =>
@@ -46,7 +45,7 @@ const buildLinkLacak = (kodeTiket) =>
 
 const buildPesanTiket = (kodeTiket) =>
   `Halo, terima kasih sudah melapor ke LaporKeun!\n\nBerikut adalah kode tiket rahasiamu: *${kodeTiket}*.\n\nSimpan kode ini. Kamu bisa memantau status laporanmu melalui tautan berikut:\n${buildLinkLacak(kodeTiket)}\n\nJangan bagikan kode ini ke siapa pun ya!`;
-// ------------------------------------
+
 
 const isPsikolog = (req) => req.user?.role === "PSIKOLOG";
 const isAssignedTo = (sesiList, userId) =>
@@ -412,7 +411,12 @@ exports.updateStatusLaporan = async (req, res) => {
 
     const existing = await prisma.laporan.findUnique({
       where: { id },
-      select: { status: true, sesi: { select: { psikologId: true } } },
+      select: {
+        status: true,
+        kodeTiket: true,
+        pelapor: { select: { nama: true, email: true } },
+        sesi: { select: { psikologId: true } },
+      },
     });
     if (!existing) return fail(res, 404, "Laporan tidak ditemukan.");
 
@@ -459,6 +463,17 @@ exports.updateStatusLaporan = async (req, res) => {
           ]
         : []),
     ]);
+
+    // --- NOTIFIKASI EMAIL KE SISWA ---
+    // await: aman di Vercel. mailer.sendStatusChange tidak pernah throw,
+    // jadi status tetap berhasil diubah walau SMTP bermasalah.
+    await mailer.sendStatusChange({
+      to: existing.pelapor?.email,
+      nama: existing.pelapor?.nama,
+      kodeTiket: existing.kodeTiket,
+      status,
+    });
+    // ---------------------------------
 
     return res.json({
       message: "Status laporan berhasil diperbarui!",
@@ -571,6 +586,9 @@ exports.alihkanKePsikolog = async (req, res) => {
       return fail(res, 400, `Catatan maksimal ${MAX_CATATAN} karakter.`);
     }
 
+    // Data untuk email, diisi di dalam transaksi, dikirim setelah transaksi selesai
+    let notif = null;
+
     await prisma.$transaction(async (tx) => {
       const psikolog = await tx.user.findFirst({
         where: { id: psikologId, role: "PSIKOLOG", isActive: true },
@@ -581,6 +599,7 @@ exports.alihkanKePsikolog = async (req, res) => {
       const laporan = await tx.laporan.findUnique({
         where: { id },
         include: {
+          pelapor: { select: { nama: true, email: true } },
           sesi: { where: { status: "AKTIF" }, orderBy: { createdAt: "desc" }, take: 1 },
         },
       });
@@ -627,7 +646,20 @@ exports.alihkanKePsikolog = async (req, res) => {
           },
         },
       });
+
+      // Hanya kirim email jika status memang berubah
+      if (laporan.status !== "PROSES") {
+        notif = {
+          to: laporan.pelapor?.email,
+          nama: laporan.pelapor?.nama,
+          kodeTiket: laporan.kodeTiket,
+        };
+      }
     });
+
+    // --- NOTIFIKASI EMAIL KE SISWA (setelah transaksi selesai) ---
+    if (notif) await mailer.sendStatusChange({ ...notif, status: "PROSES" });
+    // -------------------------------------------------------------
 
     return res.json({ message: "Laporan berhasil dialihkan ke psikolog." });
   } catch (error) {
