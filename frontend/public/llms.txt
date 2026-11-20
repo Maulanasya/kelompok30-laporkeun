@@ -1,0 +1,9 @@
+# LaporKeun!
+
+> Platform pelaporan anti-perundungan (anti-bullying) dan layanan konseling psikologis untuk siswa.
+
+## Halaman Utama
+- [Beranda](https://kelompok30-laporkeun.vercel.app/): Informasi utama dan akses cepat pelaporan.
+- [Edukasi](https://kelompok30-laporkeun.vercel.app/edukasi): Materi pencegahan dan penanganan perundungan.
+- [Bantuan](https://kelompok30-laporkeun.vercel.app/bantuan): Panduan layanan konseling Guru BK dan psikolog.
+- [Masuk](https://kelompok30-laporkeun.vercel.app/login): Akses akun siswa untuk membuat dan memantau laporan.

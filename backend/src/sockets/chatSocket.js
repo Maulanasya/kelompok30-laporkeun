@@ -5,7 +5,6 @@ const {
   presentChat,
   canSeeMessage,
 } = require("../controllers/chatController");
-const { notifyNewMessage } = require("../services/notifier");
 
 const normTiket = (value) => String(value || "").trim().toUpperCase();
 const roomOf = (kodeTiket) => `tiket:${normTiket(kodeTiket)}`;
@@ -85,29 +84,19 @@ module.exports = (io) => {
           });
         });
 
-        // Daftar user yang sedang membuka percakapan ini (tidak perlu diemail)
-        const activeUserIds = new Set(sockets.map((s) => s.data.user.id));
-
-        // Mengirim notifikasi pembaruan daftar chat (chat_updated) ke pihak terkait
+        // Mengirim notifikasi pembaruan daftar chat (chat_updated) hanya ke pihak yang ditugaskan
         const targets = new Set([`user:${laporan.pelaporId}`]);
         laporan.sesi.forEach((s) => {
           if (s.psikologId && canSeeMessage("PSIKOLOG", chat.sender.role)) {
             targets.add(`user:${s.psikologId}`);
           }
+          if (s.guruBkId && canSeeMessage("GURU_BK", chat.sender.role)) {
+            targets.add(`user:${s.guruBkId}`);
+          }
         });
-        if (canSeeMessage("GURU_BK", chat.sender.role)) targets.add("role:GURU_BK");
         io.to([...targets]).emit("chat_updated", { kodeTiket });
 
-        // Balas dulu supaya pengirim tidak menunggu SMTP
         reply(ack, { ok: true });
-
-        // Notifikasi email ke lawan bicara (tidak pernah throw)
-        await notifyNewMessage({
-          chat,
-          laporan,
-          senderRole: user.role,
-          activeUserIds,
-        });
       } catch (error) {
         console.error("send_message error:", error);
         reply(ack, { ok: false, error: "Gagal mengirim pesan." });

@@ -2,16 +2,13 @@ const prisma = require("../config/db");
 
 const MAX_PESAN = 1000;
 
-// Helper untuk mengirim respon gagal
 const fail = (res, status, text) =>
   res.status(status).json({ error: text, message: text });
 
-// Normalisasi kode tiket (uppercase & trim)
 const normTiket = (value) => String(value || "").trim().toUpperCase();
 
 const SENDER_SELECT = { id: true, nama: true, role: true };
 
-// Mencari data laporan beserta sesi terkait untuk kebutuhan chat
 const findLaporanForChat = (kodeTiket) =>
   prisma.laporan.findUnique({
     where: { kodeTiket },
@@ -28,26 +25,28 @@ const findLaporanForChat = (kodeTiket) =>
     },
   });
 
-// Memeriksa hak akses user terhadap laporan/chat
+// Memeriksa hak akses user terhadap laporan/chat:
+// - SISWA: hanya pemilik laporan
+// - GURU_BK: hanya Guru BK yang tercatat di sesi laporan ini
+// - PSIKOLOG: hanya Psikolog yang ditugaskan di sesi laporan ini
 const canAccess = (user, laporan) => {
   if (!user || !laporan) return false;
   switch (user.role) {
     case "SISWA":
       return laporan.pelaporId === user.id;
     case "GURU_BK":
-    case "ADMIN":
-      return true;
+      return laporan.sesi.some((s) => s.guruBkId === user.id);
     case "PSIKOLOG":
       return laporan.sesi.some((s) => s.psikologId === user.id);
+    case "ADMIN":
+      return true;
     default:
       return false;
   }
 };
 
-// Mengecek apakah laporan sudah selesai atau diarsipkan
 const isClosed = (laporan) => laporan.status === "SELESAI" || laporan.isArchived;
 
-// Filter pengirim berdasarkan peran (role) user yang sedang aktif
 const senderRoleFilter = (role) => {
   if (role === "GURU_BK" || role === "ADMIN") {
     return { sender: { role: { not: "PSIKOLOG" } } };
@@ -58,7 +57,6 @@ const senderRoleFilter = (role) => {
   return {};
 };
 
-// Memeriksa apakah suatu peran dapat melihat pesan dari peran pengirim tertentu
 const canSeeMessage = (viewerRole, senderRole) => {
   if (viewerRole === "GURU_BK" || viewerRole === "ADMIN") {
     return senderRole !== "PSIKOLOG";
@@ -69,7 +67,6 @@ const canSeeMessage = (viewerRole, senderRole) => {
   return true;
 };
 
-// Memformat objek chat sebelum dikirim ke client (termasuk masking identitas jika anonim)
 const presentChat = (chat, laporan, viewer) => {
   const masked =
     chat.sender.role === "SISWA" && laporan.isAnonim && viewer.role !== "SISWA";
@@ -91,13 +88,11 @@ const presentChat = (chat, laporan, viewer) => {
 exports.canSeeMessage = canSeeMessage;
 exports.presentChat = presentChat;
 
-// Mengecek apakah user memiliki akses ke chat berdasarkan tiket
 exports.canAccessChat = async (user, kodeTiket) => {
   const laporan = await findLaporanForChat(normTiket(kodeTiket));
   return Boolean(laporan) && canAccess(user, laporan);
 };
 
-// Mengirim pesan chat baru
 exports.sendChatMessage = async ({ kodeTiket, userId, pesan }) => {
   try {
     const text = String(pesan ?? "").trim();
@@ -151,7 +146,6 @@ exports.sendChatMessage = async ({ kodeTiket, userId, pesan }) => {
   }
 };
 
-// Wrapper untuk menyimpan pesan chat
 exports.saveChatMessage = async ({ kodeTiket, senderId, pesan }) => {
   const result = await exports.sendChatMessage({
     kodeTiket,
@@ -161,7 +155,6 @@ exports.saveChatMessage = async ({ kodeTiket, senderId, pesan }) => {
   return result.ok ? result.chat : null;
 };
 
-// Mengambil riwayat pesan berdasarkan kode tiket
 exports.getChatHistoryByTiket = async (req, res) => {
   try {
     const kodeTiket = normTiket(req.params.kodeTiket);
@@ -213,7 +206,6 @@ exports.getChatHistoryByTiket = async (req, res) => {
   }
 };
 
-// Mengambil daftar chat/percakapan yang aktif bagi user yang sedang login
 exports.getChatList = async (req, res) => {
   try {
     const { id: userId, role } = req.user;
@@ -231,6 +223,11 @@ exports.getChatList = async (req, res) => {
         pelaporId: userId,
         isArchived: false,
         OR: [{ chats: { some: chatWhere } }, { sesi: { some: {} } }],
+      };
+    } else if (role === "GURU_BK") {
+      where = {
+        isArchived: false,
+        sesi: { some: { guruBkId: userId } },
       };
     } else if (role === "PSIKOLOG") {
       where = {
@@ -334,7 +331,6 @@ exports.getChatList = async (req, res) => {
   }
 };
 
-// Menandai pesan dalam chat sebagai sudah dibaca
 exports.markChatRead = async (req, res) => {
   try {
     const kodeTiket = normTiket(req.params.kodeTiket);

@@ -46,8 +46,8 @@ const buildLinkLacak = (kodeTiket) =>
 const buildPesanTiket = (kodeTiket) =>
   `Halo, terima kasih sudah melapor ke LaporKeun!\n\nBerikut adalah kode tiket rahasiamu: *${kodeTiket}*.\n\nSimpan kode ini. Kamu bisa memantau status laporanmu melalui tautan berikut:\n${buildLinkLacak(kodeTiket)}\n\nJangan bagikan kode ini ke siapa pun ya!`;
 
-
 const isPsikolog = (req) => req.user?.role === "PSIKOLOG";
+const isGuruBk = (req) => req.user?.role === "GURU_BK";
 const isAssignedTo = (sesiList, userId) =>
   (sesiList || []).some((s) => s.psikologId === userId);
 
@@ -145,7 +145,6 @@ exports.createLaporan = async (req, res) => {
     const invalid = validateFields({ lokasiKejadian, waktuKejadian, deskripsi });
     if (invalid) return fail(res, 400, invalid);
 
-    // Upload bukti ke Cloudinary (file ada di memori, bukan di disk)
     let buktiUrl = null;
     if (req.file) {
       try {
@@ -203,8 +202,6 @@ exports.createLaporan = async (req, res) => {
           },
         });
 
-        // --- KIRIM WA OTOMATIS ---
-        // await + try/catch: aman di Vercel, dan laporan tetap berhasil walau WA gagal
         if (noWhatsapp) {
           try {
             await axios.post(
@@ -216,7 +213,6 @@ exports.createLaporan = async (req, res) => {
             console.error("Gagal kirim WA:", err.message);
           }
         }
-        // -------------------------
 
         return res.status(201).json({ message: "Laporan berhasil dikirim!", laporan });
       } catch (err) {
@@ -326,20 +322,19 @@ exports.getDetailLaporan = async (req, res) => {
       return fail(res, 403, "Laporan ini tidak ditugaskan kepadamu.");
     }
 
-    let fallbackGuruBk = null;
-
-    if (req.user.role === "GURU_BK") {
-      const belumPunyaBk = laporan.sesi.some((s) => !s.guruBkId && s.status === "AKTIF");
-      if (belumPunyaBk) {
-        await prisma.sesiKonsultasi.updateMany({
-          where: { laporanId: laporan.id, status: "AKTIF", guruBkId: null },
-          data: { guruBkId: req.user.id },
-        });
+    // Jika laporan sudah diklaim Guru BK lain, tolak akses BK lainnya
+    if (isGuruBk(req)) {
+      const sudahDiambilBkLain = laporan.sesi.some(
+        (s) => s.guruBkId && s.guruBkId !== req.user.id
+      );
+      if (sudahDiambilBkLain) {
+        return fail(res, 403, "Laporan ini sedang ditangani oleh Guru BK lain.");
       }
-      fallbackGuruBk = { id: req.user.id, nama: req.user.nama, email: req.user.email };
-    } else if (laporan.sesi.some((s) => !s.guruBk)) {
-      fallbackGuruBk = await getDefaultGuruBk();
     }
+
+    const fallbackGuruBk = laporan.sesi.some((s) => !s.guruBk)
+      ? await getDefaultGuruBk()
+      : null;
 
     return res.json({ data: presentForStaff(laporan, req.user, fallbackGuruBk) });
   } catch (error) {
@@ -412,10 +407,11 @@ exports.updateStatusLaporan = async (req, res) => {
     const existing = await prisma.laporan.findUnique({
       where: { id },
       select: {
+        pelaporId: true,
         status: true,
         kodeTiket: true,
         pelapor: { select: { nama: true, email: true } },
-        sesi: { select: { psikologId: true } },
+        sesi: { select: { id: true, psikologId: true, guruBkId: true, status: true } },
       },
     });
     if (!existing) return fail(res, 404, "Laporan tidak ditemukan.");
@@ -423,12 +419,25 @@ exports.updateStatusLaporan = async (req, res) => {
     if (isPsikolog(req) && !isAssignedTo(existing.sesi, req.user.id)) {
       return fail(res, 403, "Laporan ini tidak ditugaskan kepadamu.");
     }
+
+    // Validasi 1 Guru BK per laporan: jika sudah diklaim Guru BK lain, tolak perubahan
+    if (isGuruBk(req)) {
+      const sesiSudahDiklaim = existing.sesi.find(
+        (s) => s.guruBkId && s.guruBkId !== req.user.id
+      );
+      if (sesiSudahDiklaim) {
+        return fail(res, 403, "Laporan ini sudah ditangani oleh Guru BK lain.");
+      }
+    }
+
     if (existing.status === "SELESAI") {
       return fail(res, 400, "Laporan sudah selesai dan tidak bisa diubah lagi.");
     }
     if (existing.status === status) {
       return fail(res, 400, "Laporan sudah berstatus tersebut.");
     }
+
+    const hasActiveSesi = existing.sesi.some((s) => s.status === "AKTIF");
 
     const [updatedLaporan] = await prisma.$transaction([
       prisma.laporan.update({
@@ -446,13 +455,25 @@ exports.updateStatusLaporan = async (req, res) => {
         },
         select: { id: true, kodeTiket: true, status: true, updatedAt: true },
       }),
-      ...(req.user.role === "GURU_BK"
-        ? [
-            prisma.sesiKonsultasi.updateMany({
-              where: { laporanId: id, status: "AKTIF", guruBkId: null },
-              data: { guruBkId: req.user.id },
-            }),
-          ]
+      ...(isGuruBk(req)
+        ? hasActiveSesi
+          ? [
+              prisma.sesiKonsultasi.updateMany({
+                where: { laporanId: id, status: "AKTIF", guruBkId: null },
+                data: { guruBkId: req.user.id },
+              }),
+            ]
+          : [
+              prisma.sesiKonsultasi.create({
+                data: {
+                  laporanId: id,
+                  siswaId: existing.pelaporId,
+                  guruBkId: req.user.id,
+                  jenis: "BK",
+                  status: status === "SELESAI" ? "SELESAI" : "AKTIF",
+                },
+              }),
+            ]
         : []),
       ...(status === "SELESAI"
         ? [
@@ -464,16 +485,12 @@ exports.updateStatusLaporan = async (req, res) => {
         : []),
     ]);
 
-    // --- NOTIFIKASI EMAIL KE SISWA ---
-    // await: aman di Vercel. mailer.sendStatusChange tidak pernah throw,
-    // jadi status tetap berhasil diubah walau SMTP bermasalah.
     await mailer.sendStatusChange({
       to: existing.pelapor?.email,
       nama: existing.pelapor?.nama,
       kodeTiket: existing.kodeTiket,
       status,
     });
-    // ---------------------------------
 
     return res.json({
       message: "Status laporan berhasil diperbarui!",
@@ -586,7 +603,6 @@ exports.alihkanKePsikolog = async (req, res) => {
       return fail(res, 400, `Catatan maksimal ${MAX_CATATAN} karakter.`);
     }
 
-    // Data untuk email, diisi di dalam transaksi, dikirim setelah transaksi selesai
     let notif = null;
 
     await prisma.$transaction(async (tx) => {
@@ -600,13 +616,22 @@ exports.alihkanKePsikolog = async (req, res) => {
         where: { id },
         include: {
           pelapor: { select: { nama: true, email: true } },
-          sesi: { where: { status: "AKTIF" }, orderBy: { createdAt: "desc" }, take: 1 },
+          sesi: { where: { status: "AKTIF" }, orderBy: { createdAt: "desc" } },
         },
       });
       if (!laporan) throw new HttpError(404, "Laporan tidak ditemukan.");
       if (laporan.isArchived) throw new HttpError(400, "Laporan sudah diarsipkan.");
       if (laporan.status === "SELESAI") {
         throw new HttpError(400, "Laporan sudah selesai, tidak bisa dialihkan.");
+      }
+
+      if (isGuruBk(req)) {
+        const bkLain = laporan.sesi.find(
+          (s) => s.guruBkId && s.guruBkId !== req.user.id
+        );
+        if (bkLain) {
+          throw new HttpError(403, "Laporan ini sudah ditangani oleh Guru BK lain.");
+        }
       }
 
       const sesi = laporan.sesi[0];
@@ -617,7 +642,11 @@ exports.alihkanKePsikolog = async (req, res) => {
       if (sesi) {
         await tx.sesiKonsultasi.update({
           where: { id: sesi.id },
-          data: { psikologId: psikolog.id, guruBkId: req.user.id, jenis: "PSIKOLOG" },
+          data: {
+            psikologId: psikolog.id,
+            guruBkId: sesi.guruBkId || req.user.id,
+            jenis: "PSIKOLOG",
+          },
         });
       } else {
         await tx.sesiKonsultasi.create({
@@ -647,7 +676,6 @@ exports.alihkanKePsikolog = async (req, res) => {
         },
       });
 
-      // Hanya kirim email jika status memang berubah
       if (laporan.status !== "PROSES") {
         notif = {
           to: laporan.pelapor?.email,
@@ -657,9 +685,7 @@ exports.alihkanKePsikolog = async (req, res) => {
       }
     });
 
-    // --- NOTIFIKASI EMAIL KE SISWA (setelah transaksi selesai) ---
     if (notif) await mailer.sendStatusChange({ ...notif, status: "PROSES" });
-    // -------------------------------------------------------------
 
     return res.json({ message: "Laporan berhasil dialihkan ke psikolog." });
   } catch (error) {
@@ -688,7 +714,6 @@ exports.kirimTiketKeWa = async (req, res) => {
       return fail(res, 404, "Laporan tidak ditemukan.");
     }
 
-    // Kirim via Fonnte
     await axios
       .post(
         "https://api.fonnte.com/send",
@@ -700,7 +725,6 @@ exports.kirimTiketKeWa = async (req, res) => {
         throw new Error("Gagal mengirim pesan WhatsApp. Cek nomor atau koneksi server.");
       });
 
-    // Simpan nomor WA ke laporan (opsional, biar ke-track)
     await prisma.laporan.update({
       where: { kodeTiket: laporan.kodeTiket },
       data: { noWhatsapp },
